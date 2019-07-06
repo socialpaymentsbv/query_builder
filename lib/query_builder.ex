@@ -43,24 +43,24 @@ defmodule QueryBuilder do
   def new(repo, base_query, params, param_types)
       when is_repo(repo) and is_query(base_query) and is_params(params)
       and is_param_types(param_types) do
-    qb = %__MODULE__{
+    %__MODULE__{
       repo: repo,
       base_query: base_query,
       params: params,
       param_types: param_types
     }
+    |> validate_params()
+  end
 
+  @spec validate_params(t()) :: t()
+  defp validate_params(%__MODULE__{params: params, param_types: param_types} = qb)
+       when is_params(params) and is_param_types(param_types) do
     %__MODULE__{qb |
-      changeset: validate_params(qb)
+      changeset: Ecto.Changeset.cast({%{}, param_types}, params, Map.keys(param_types))
     }
   end
 
-  defp validate_params(%__MODULE__{params: params, param_types: param_types})
-       when is_params(params) and is_param_types(param_types) do
-    {%{}, param_types}
-    |> Ecto.Changeset.cast(params, Map.keys(param_types))
-  end
-
+  @spec add_filter(t(), field(), filter_fun()) :: t()
   def add_filter(%__MODULE__{filters: filters} = qb, field, filter_fun)
       when is_field(field) and is_filter(filter_fun) do
     %__MODULE__{qb |
