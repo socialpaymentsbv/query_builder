@@ -2,7 +2,12 @@ defmodule QueryBuilderTest do
   use ExUnit.Case
   doctest QueryBuilder
 
+  alias Ecto.Changeset
   alias QB.{Repo, User}
+  alias QueryBuilder, as: QB
+
+  @valid_params %{"criteria" => "clubcollect", "adult" => true}
+  @valid_param_types %{criteria: :string, adult: :boolean}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -24,6 +29,16 @@ defmodule QueryBuilderTest do
   end
 
   test "create with valid params and valid types" do
+    qb = QB.new(Repo, User, @valid_params, @valid_param_types)
+    assert qb.repo === Repo
+    assert qb.base_query === User
+    assert qb.params === @valid_params
+    assert qb.param_types === @valid_param_types
+
+    cs = qb.changeset
+
+    assert "clubcollect" === Changeset.get_change(cs, :criteria)
+    assert true === Changeset.get_change(cs, :adult)
   end
 
   # test "creates query_builder from params" do
