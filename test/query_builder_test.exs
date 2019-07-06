@@ -6,6 +6,8 @@ defmodule QueryBuilderTest do
   alias QB.{Repo, User}
   alias QueryBuilder, as: QB
 
+  import Ecto.Query
+
   @valid_params %{"criteria" => "clubcollect", "adult" => true}
   @valid_param_types %{criteria: :string, adult: :boolean}
   @invalid_params %{"criteria" => 1.17, "adult" => 9}
@@ -29,12 +31,32 @@ defmodule QueryBuilderTest do
     [adult_user: inserted_adult_user, juvenile_user: inserted_juvenile_user]
   end
 
+  defp filter_user_by_criteria(query, criteria) do
+    db_criteria = "%#{criteria}%"
+    from(u in query,
+      where: ilike(u.name, ^db_criteria) or ilike(u.email, ^db_criteria)
+    )
+  end
+
+  defp filter_user_by_adult(query, true) do
+    from(u in query,
+      where: fragment("date_part('years', age(now(), ?)) > 18", u.birthdate)
+    )
+  end
+
+  defp filter_user_by_adult(query, false), do: query
+
   test "create with valid params and valid types" do
-    qb = QB.new(Repo, User, @valid_params, @valid_param_types)
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.add_filter(:criteria, &filter_user_by_criteria/2)
+      |> QB.add_filter(:adult, &filter_user_by_adult/2)
+
     assert qb.repo === Repo
     assert qb.base_query === User
     assert qb.params === @valid_params
     assert qb.param_types === @valid_param_types
+    assert match?(%{criteria: [fun_c], adult: [fun_a]} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filters)
 
     cs = qb.changeset
     assert "clubcollect" === Changeset.get_change(cs, :criteria)
@@ -46,14 +68,6 @@ defmodule QueryBuilderTest do
     assert match?({_msg, [type: :string, validation: :cast]}, cs.errors[:criteria])
     assert match?({_msg, [type: :boolean, validation: :cast]}, cs.errors[:adult])
   end
-
-  # test "creates query_builder from params" do
-  #   params = %{"criteria" => "tom", "adult" => "true"}
-  #   types = %{criteria: :string, adult: :boolean}
-  #   qb = QueryBuilder.from_params(params, types)
-  #   assert qb.params == params
-  #   assert qb.filters == %{criteria: "tom", adult: true}
-  # end
 
   # test "query() returns a query from applied params", %{adult_user: user} do
   #   query =
