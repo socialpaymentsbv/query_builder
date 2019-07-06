@@ -8,6 +8,7 @@ defmodule QueryBuilderTest do
 
   @valid_params %{"criteria" => "clubcollect", "adult" => true}
   @valid_param_types %{criteria: :string, adult: :boolean}
+  @invalid_params %{"criteria" => 1.17, "adult" => 9}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -36,9 +37,14 @@ defmodule QueryBuilderTest do
     assert qb.param_types === @valid_param_types
 
     cs = qb.changeset
-
     assert "clubcollect" === Changeset.get_change(cs, :criteria)
     assert true === Changeset.get_change(cs, :adult)
+  end
+
+  test "create with invalid params and valid types" do
+    cs = QB.new(Repo, User, @invalid_params, @valid_param_types).changeset
+    assert match?({_msg, [type: :string, validation: :cast]}, cs.errors[:criteria])
+    assert match?({_msg, [type: :boolean, validation: :cast]}, cs.errors[:adult])
   end
 
   # test "creates query_builder from params" do
