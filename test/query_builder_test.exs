@@ -2,15 +2,14 @@ defmodule QueryBuilderTest do
   use ExUnit.Case
   doctest QueryBuilder
 
-  alias Ecto.Changeset
   alias QB.{Repo, User}
   alias QueryBuilder, as: QB
 
   import Ecto.Query
 
-  @valid_params %{"search" => "clubcollect", "adult" => true}
+  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "50"}
   @valid_param_types %{search: :string, adult: :boolean}
-  @invalid_params %{"search" => 1.17, "adult" => 9}
+  @invalid_params %{"search" => 1.17, "adult" => 9, "sort" => "inserted_at:desc", "page" => "1", "page_size" => "50"}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -31,42 +30,47 @@ defmodule QueryBuilderTest do
     [adult_user: inserted_adult_user, juvenile_user: inserted_juvenile_user]
   end
 
-  defp filter_user_by_search(query, search) do
+  defp filter_users_by_search(query, search) do
     db_search = "%#{search}%"
     from(u in query,
       where: ilike(u.name, ^db_search) or ilike(u.email, ^db_search)
     )
   end
 
-  defp filter_user_by_adult(query, true) do
+  defp filter_users_by_adult(query, true) do
     from(u in query,
       where: fragment("date_part('years', age(now(), ?)) > 18", u.birthdate)
     )
   end
 
-  defp filter_user_by_adult(query, false), do: query
+  defp filter_users_by_adult(query, false), do: query
 
   test "create with valid params and valid types" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.add_filter_function(:search, &filter_user_by_search/2)
-      |> QB.add_filter_function(:adult, &filter_user_by_adult/2)
+      |> QB.add_filter_function(:search, &filter_users_by_search/2)
+      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
 
     assert qb.repo === Repo
     assert qb.base_query === User
     assert qb.params === @valid_params
     assert qb.param_types === @valid_param_types
     assert match?(%{search: [fun_c], adult: [fun_a]} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filter_functions)
+    assert %{search: "clubcollect", adult: true} === qb.filters
 
-    cs = qb.changeset
-    assert "clubcollect" === Changeset.get_change(cs, :search)
-    assert true === Changeset.get_change(cs, :adult)
+    expected_query =
+      from(
+        u in User,
+        where: fragment("date_part('years', age(now(), ?)) > 18", u.birthdate),
+        where: ilike(u.name, ^"%clubcollect%") or ilike(u.email, ^"%clubcollect%")
+      )
+    assert inspect(expected_query) == inspect(QB.query(qb))
   end
 
   test "create with invalid params and valid types" do
-    cs = QB.new(Repo, User, @invalid_params, @valid_param_types).changeset
-    assert match?({_msg, [type: :string, validation: :cast]}, cs.errors[:search])
-    assert match?({_msg, [type: :boolean, validation: :cast]}, cs.errors[:adult])
+    qb = QB.new(Repo, User, @invalid_params, @valid_param_types)
+    assert QB.invalid?(qb, :search)
+    assert QB.invalid?(qb, :adult)
   end
 
   # test "query() returns a query from applied params", %{adult_user: user} do
