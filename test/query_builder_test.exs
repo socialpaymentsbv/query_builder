@@ -51,12 +51,14 @@ defmodule QueryBuilderTest do
       |> QB.add_filter_function(:search, &filter_users_by_search/2)
       |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
 
-    assert qb.repo === Repo
-    assert qb.base_query === User
-    assert qb.params === @valid_params
-    assert qb.param_types === @valid_param_types
+    assert Repo === qb.repo
+    assert User === qb.base_query
+    assert match?(%Ecto.Changeset{valid?: true, errors: []}, qb.changeset)
+    assert @valid_params === qb.params
+    assert @valid_param_types === qb.param_types
     assert match?(%{search: [fun_c], adult: [fun_a]} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filter_functions)
     assert %{search: "clubcollect", adult: true} === qb.filters
+    assert %{page: 1, page_size: 1} === qb.pagination
 
     expected_query =
       from(
