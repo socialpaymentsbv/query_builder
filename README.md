@@ -1,21 +1,10 @@
-# QueryBuilder
+## Intro
 
-**TODO: Add description**
+Elixir library for building queries with Ecto. Includes filtering with user-supplied functions, ordering and pagination (compatible with Scrivener).
 
-## Installation
+## Developer notes
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `query_builder` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:query_builder, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/query_builder](https://hexdocs.pm/query_builder).
-
+- Must Introduce sorting.
+- Must have functions to add and remove filter parameters. Currently they can only be specified when creating the `QueryBuilder`.
+- Must have functions to remove filter functions. Currently they can be specified when creating the `QueryBuilder` and with its `add_filter_function`.
+- `put_pagination` will not parse strings values. Only integers are allowed. Maybe this should be changed so as to allow them and use Ecto's Changeset casting on them beyond the `new` function?
