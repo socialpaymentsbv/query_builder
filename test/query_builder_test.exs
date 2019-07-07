@@ -7,9 +7,9 @@ defmodule QueryBuilderTest do
 
   import Ecto.Query
 
-  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "50"}
-  @valid_param_types %{search: :string, adult: :boolean}
-  @invalid_params %{"search" => 1.17, "adult" => 9, "sort" => "inserted_at:desc", "page" => "1", "page_size" => "50"}
+  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "1"}
+  @valid_param_types %{search: :string, adult: :boolean, page: :integer, page_size: :integer}
+  @invalid_params %{"search" => 1.17, "adult" => 9, "sort" => "inserted_at:desc", "page" => "3", "page_size" => "100"}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -71,6 +71,39 @@ defmodule QueryBuilderTest do
     qb = QB.new(Repo, User, @invalid_params, @valid_param_types)
     assert QB.invalid?(qb, :search)
     assert QB.invalid?(qb, :adult)
+  end
+
+  test "fetching correct records from database through an Ecto Repo", %{adult_user: expected_user} do
+    fetched_users =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.add_filter_function(:search, &filter_users_by_search/2)
+      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.query()
+      |> Repo.all()
+
+    assert fetched_users == [expected_user]
+  end
+
+  test "fetching correct records from database through the fetch function", %{adult_user: expected_user} do
+    fetched_users =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.add_filter_function(:search, &filter_users_by_search/2)
+      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.clear_pagination()
+      |> QB.fetch()
+
+    assert fetched_users == [expected_user]
+  end
+
+  test "pagination works", %{adult_user: expected_user} do
+    fetched_users =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.add_filter_function(:search, &filter_users_by_search/2)
+      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.fetch()
+
+    assert match?(%Scrivener.Page{}, fetched_users)
+    assert fetched_users.entries == [expected_user]
   end
 
   # test "query() returns a query from applied params", %{adult_user: user} do
