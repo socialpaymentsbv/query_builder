@@ -97,7 +97,7 @@ defmodule QueryBuilderTest do
     assert fetched_users == [expected_user]
   end
 
-  test "pagination works", %{adult_user: expected_user} do
+  test "database pagination works", %{adult_user: expected_user} do
     fetched_users =
       QB.new(Repo, User, @valid_params, @valid_param_types)
       |> QB.add_filter_function(:search, &filter_users_by_search/2)
@@ -108,23 +108,21 @@ defmodule QueryBuilderTest do
     assert fetched_users.entries == [expected_user]
   end
 
-  # test "query() returns a query from applied params", %{adult_user: user} do
-  #   query =
-  #     %{"criteria" => "ad", "adult" => "true"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.query()
+  test "removing pagination works" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.clear_pagination()
 
-  #   assert [user] == Repo.all(query)
-  # end
+    assert is_nil(qb.pagination)
+  end
 
-  # test "entries() return a list of entries", %{adult_user: user} do
-  #   users =
-  #     %{"criteria" => "ad", "adult" => "true"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.entries()
+  test "setting pagination works" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.put_pagination(%{"page" => 3, "page_size" => 20})
 
-  #   assert users == [user]
-  # end
+    assert %{page: 3, page_size: 20} === qb.pagination
+  end
 
   # test "ordering works", %{adult_user: adult_user, juvenile_user: juvenile_user} do
   #   users =
@@ -133,53 +131,6 @@ defmodule QueryBuilderTest do
   #     |> QueryBuilder.entries()
 
   #   assert users == [adult_user, juvenile_user]
-  # end
-
-  # test "pagination works", %{adult_user: adult_user} do
-  #   users =
-  #     %{"order_by" => "birthdate:asc", "page_size" => "1", "page" => "1"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.entries()
-
-  #   assert %Scrivener.Page{} = users
-  #   assert users.entries == [adult_user]
-  # end
-
-  # test "default pagination sets page_size to 50" do
-  #   query_builder =
-  #     %{"order_by" => "birthdate:asc"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.default_pagination()
-
-  #   assert query_builder.pagination.page_size == 50
-  # end
-
-  # test "default pagination does not overwrite one from params" do
-  #   query_builder =
-  #     %{"order_by" => "birthdate:asc", "page" => 1, "page_size" => 20}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.default_pagination()
-
-  #   assert query_builder.pagination.page_size == 20
-  # end
-
-  # test "paginate overwrites params" do
-  #   query_builder =
-  #     %{"order_by" => "birthdate:asc", "page" => 1, "page_size" => 20}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.paginate(%{"page" => 2, "page_size" => 30})
-
-  #   assert query_builder.pagination["page_size"] == 30
-  # end
-
-  # test "default filter does not overwrite params" do
-  #   query_builder =
-  #     %{"criteria" => "a"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.default_filter(%{criteria: "b", adult: true})
-
-  #   assert query_builder.filters.criteria == "a"
-  #   assert query_builder.filters.adult == true
   # end
 
   # test "filter overwrites params" do
