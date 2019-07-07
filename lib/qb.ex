@@ -1,4 +1,4 @@
-defmodule QueryBuilder do
+defmodule QB do
   @moduledoc """
   TODO
   """

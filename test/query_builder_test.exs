@@ -1,9 +1,8 @@
-defmodule QueryBuilderTest do
+defmodule QBTest do
   use ExUnit.Case
-  doctest QueryBuilder
+  doctest QB
 
   alias QB.{Repo, User}
-  alias QueryBuilder, as: QB
 
   import Ecto.Query
 
