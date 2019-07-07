@@ -89,13 +89,13 @@ defmodule QueryBuilder do
   end
 
   @spec invalid?(t(), field()) :: boolean()
-  def invalid?(%__MODULE__{changeset: cs} = qb, field)
+  def invalid?(%__MODULE__{changeset: cs}, field)
       when is_field(field) do
     match?({_msg, [type: _, validation: :cast]}, cs.errors[field])
   end
 
   @spec filter(t(), field()) :: filter_value()
-  def filter(%__MODULE__{filters: filters} = qb, field)
+  def filter(%__MODULE__{filters: filters}, field)
       when is_field(field) do
     Map.get(filters, field)
   end
@@ -110,7 +110,8 @@ defmodule QueryBuilder do
 
   @spec query(t()) :: query()
   def query(%__MODULE__{base_query: base_query, filter_functions: filter_functions} = qb) do
-    q = Enum.reduce(filter_functions, base_query, fn {field, functions}, outer_query ->
+    Enum.reduce(filter_functions, base_query, fn {field, functions}, outer_query ->
+      # Each field might have several filtering functions attached.
       Enum.reduce(functions, outer_query, fn filter_fun, inner_query ->
         filter_fun.(inner_query, __MODULE__.filter(qb, field))
       end)
