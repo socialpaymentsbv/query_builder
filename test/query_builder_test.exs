@@ -122,41 +122,4 @@ defmodule QBTest do
 
     assert %{page: 3, page_size: 20} === qb.pagination
   end
-
-  # test "ordering works", %{adult_user: adult_user, juvenile_user: juvenile_user} do
-  #   users =
-  #     %{"order_by" => "birthdate:asc"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.entries()
-
-  #   assert users == [adult_user, juvenile_user]
-  # end
-
-  # test "filter overwrites params" do
-  #   query_builder =
-  #     %{"criteria" => "a"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.filter(%{criteria: "b", adult: true})
-
-  #   assert query_builder.filters.criteria == "b"
-  #   assert query_builder.filters.adult == true
-  # end
-
-  # test "raises custom error for unknown keys" do
-  #   assert_raise(QueryBuilder.UnknownFilter, fn ->
-  #     %{}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.filter(%{wat: "?"})
-  #     |> QueryBuilder.query()
-  #   end)
-  # end
-
-  # test "ignores unknown param filtered by validation" do
-  #   users =
-  #     %{"WAT?" => "strange_value"}
-  #     |> UserQueryBuilder.from_params()
-  #     |> QueryBuilder.entries()
-
-  #   assert [%User{}, %User{}] = users
-  # end
 end
