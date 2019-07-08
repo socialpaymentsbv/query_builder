@@ -43,7 +43,7 @@ defmodule QB do
   defguard is_repo(r) when is_module(r)
   defguard is_query(_q) when true # we cannot check more strictly since there is no way to check if a struct implements the `Ecto.Queryable` protocol.
   defguard is_field(x) when is_atom(x)
-  defguard is_params(p) when is_map(p) and map_size(p) > 0
+  defguard is_params(p) when is_map(p)
   defguard is_param_types(p) when is_map(p) and map_size(p) > 0
   defguard is_filter_value(_x) when true
   defguard is_filter_function(f) when is_function(f, 2)
