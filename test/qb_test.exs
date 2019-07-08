@@ -147,4 +147,21 @@ defmodule QBTest do
 
     assert %{page: 3, page_size: 20} === qb.pagination
   end
+
+  test "default pagination is correctly explicitly set when no user pagination is supplied" do
+    qb =
+      QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
+      |> QB.maybe_put_default_pagination(QB.default_pagination())
+
+    assert QB.default_pagination() == qb.pagination
+  end
+
+  test "default pagination is not applied when a user pagination is supplied" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.put_pagination(%{page: 3, page_size: 20})
+      |> QB.maybe_put_default_pagination(QB.default_pagination())
+
+    assert %{page: 3, page_size: 20} === qb.pagination
+  end
 end
