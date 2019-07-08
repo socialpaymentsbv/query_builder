@@ -141,10 +141,7 @@ defmodule QB do
     }
   end
 
-  @spec put_pagination(t(), param_pagination()) :: t()
-  def put_pagination(%__MODULE__{} = qb, nil), do: clear_pagination(qb)
-
-  def put_pagination(%__MODULE__{} = qb, %{"page" => page, "page_size" => page_size})
+  def put_pagination(%__MODULE__{} = qb, %{page: page, page_size: page_size})
       when is_page(page) and is_page_size(page_size) do
     %__MODULE__{qb |
       pagination: %{page: page, page_size: page_size}
