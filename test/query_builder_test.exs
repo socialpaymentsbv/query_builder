@@ -8,7 +8,6 @@ defmodule QBTest do
 
   @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "1"}
   @valid_param_types %{search: :string, adult: :boolean, page: :integer, page_size: :integer}
-  @invalid_params %{"search" => 1.17, "adult" => 9, "sort" => "inserted_at:desc", "page" => "3", "page_size" => "100"}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -55,7 +54,7 @@ defmodule QBTest do
     assert match?(%Ecto.Changeset{valid?: true, errors: []}, qb.changeset)
     assert @valid_params === qb.params
     assert @valid_param_types === qb.param_types
-    assert match?(%{search: [fun_c], adult: [fun_a]} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filter_functions)
+    assert match?(%{search: fun_c, adult: fun_a} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filter_functions)
     assert %{search: "clubcollect", adult: true} === qb.filters
     assert %{page: 1, page_size: 1} === qb.pagination
 
@@ -66,12 +65,6 @@ defmodule QBTest do
         where: ilike(u.name, ^"%clubcollect%") or ilike(u.email, ^"%clubcollect%")
       )
     assert inspect(expected_query) == inspect(QB.query(qb))
-  end
-
-  test "create with invalid params and valid types" do
-    qb = QB.new(Repo, User, @invalid_params, @valid_param_types)
-    assert QB.invalid?(qb, :search)
-    assert QB.invalid?(qb, :adult)
   end
 
   test "fetching correct records from database through an Ecto Repo", %{adult_user: expected_user} do
@@ -118,7 +111,7 @@ defmodule QBTest do
   test "setting pagination works" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.put_pagination(%{"page" => 3, "page_size" => 20})
+      |> QB.put_pagination(%{page: 3, page_size: 20})
 
     assert %{page: 3, page_size: 20} === qb.pagination
   end
