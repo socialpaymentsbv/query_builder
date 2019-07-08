@@ -148,7 +148,7 @@ defmodule QBTest do
     assert %{page: 3, page_size: 20} === qb.pagination
   end
 
-  test "default pagination is correctly explicitly set when no user pagination is supplied" do
+  test "default pagination is correct when no user pagination is supplied" do
     qb =
       QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
       |> QB.maybe_put_default_pagination(QB.default_pagination())
@@ -171,5 +171,30 @@ defmodule QBTest do
       |> QB.put_pagination(%{page: 3, page_size: 20})
 
     assert %{page: 3, page_size: 20} === qb.pagination
+  end
+
+  test "default filters are correct when no user filters are supplied" do
+    qb =
+      QB.new(Repo, User, %{}, @valid_param_types)
+      |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+
+    assert %{search: "huh?", adult: false} === qb.filters
+  end
+
+  test "default filters are not applied when user filters are supplied" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+
+    assert %{search: "clubcollect", adult: true} === qb.filters
+  end
+
+  test "explicitly set filters override defaults" do
+    qb =
+      QB.new(Repo, User, %{}, @valid_param_types)
+      |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+      |> QB.put_filters(%{search: "huh?", adult: false})
+
+    assert %{search: "huh?", adult: false} === qb.filters
   end
 end
