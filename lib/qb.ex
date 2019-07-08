@@ -39,6 +39,7 @@ defmodule QB do
     pagination: optional_pagination(),
     changeset: optional_changeset()
   }
+
   defguard is_module(m) when is_atom(m)
   defguard is_repo(r) when is_module(r)
   defguard is_query(_q) when true # we cannot check more strictly since there is no way to check if a struct implements the `Ecto.Queryable` protocol.
