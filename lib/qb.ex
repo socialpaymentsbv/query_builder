@@ -156,10 +156,18 @@ defmodule QB do
     }
   end
 
-  @spec invalid?(t(), field()) :: boolean()
-  def invalid?(%__MODULE__{changeset: cs}, field)
-      when is_field(field) do
-    match?({_msg, [type: _, validation: :cast]}, cs.errors[field])
+  @spec maybe_put_default_filters(t(), params()) :: t()
+  def maybe_put_default_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
+    %__MODULE__{qb |
+      filters: Map.merge(param_filters, filters)
+    }
+  end
+
+  @spec put_filters(t(), filters()) :: t()
+  def put_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
+    %__MODULE__{qb |
+      filters: Map.merge(filters, param_filters)
+    }
   end
 
   @spec filter(t(), field()) :: filter_value()
