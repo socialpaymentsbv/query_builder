@@ -148,10 +148,11 @@ defmodule QB do
     }
   end
 
-  def put_pagination(%__MODULE__{} = qb, %{page: page, page_size: page_size})
+  @spec maybe_put_default_pagination(t(), optional_pagination()) :: t()
+  def maybe_put_default_pagination(%__MODULE__{pagination: pagination} = qb, %{page: page, page_size: page_size} = param_pagination)
       when is_page(page) and is_page_size(page_size) do
     %__MODULE__{qb |
-      pagination: %{page: page, page_size: page_size}
+      pagination: Map.merge(param_pagination, pagination)
     }
   end
 
