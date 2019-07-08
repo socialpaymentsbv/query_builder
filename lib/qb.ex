@@ -170,12 +170,6 @@ defmodule QB do
     }
   end
 
-  @spec filter(t(), field()) :: filter_value()
-  def filter(%__MODULE__{filters: filters}, field)
-      when is_field(field) do
-    Map.get(filters, field)
-  end
-
   @spec add_filter_function(t(), field(), filter_fun()) :: t()
   def add_filter_function(%__MODULE__{filter_functions: filter_functions} = qb, field, filter_fun)
       when is_field(field) and is_filter_function(filter_fun) do
@@ -187,7 +181,7 @@ defmodule QB do
   @spec query(t()) :: query()
   def query(%__MODULE__{base_query: base_query, filter_functions: filter_functions} = qb) do
     Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->
-      filter_fun.(acc_query, __MODULE__.filter(qb, field))
+      filter_fun.(acc_query, qb.filters[field])
     end)
   end
 
