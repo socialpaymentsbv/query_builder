@@ -179,6 +179,14 @@ defmodule QB do
     }
   end
 
+  @spec remove_filter_function(t(), field()) :: t()
+  def remove_filter_function(%__MODULE__{filter_functions: filter_functions} = qb, field)
+      when is_field(field) do
+    %__MODULE__{qb |
+      filter_functions: Map.drop(filter_functions, [field])
+    }
+  end
+
   @spec query(t()) :: query()
   def query(%__MODULE__{base_query: base_query, filter_functions: filter_functions} = qb) do
     Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->

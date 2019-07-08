@@ -67,6 +67,16 @@ defmodule QBTest do
     assert inspect(expected_query) == inspect(QB.query(qb))
   end
 
+  test "removing filter function works" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+      |> QB.put_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.remove_filter_function(:search)
+
+    assert match?(%{adult: fun_a} when is_function(fun_a, 2), qb.filter_functions)
+  end
+
   test "fetching correct records from database through an Ecto Repo", %{adult_user: expected_user} do
     fetched_users =
       QB.new(Repo, User, @valid_params, @valid_param_types)
