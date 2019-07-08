@@ -6,10 +6,13 @@ defmodule QBTest do
 
   import Ecto.Query
 
-  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "1"}
-  @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc"}
+  @sort [%{"birthdate" => "desc"}, %{"inserted_at" => "desc"}]
+  @sort_types {:array, :map}
+
+  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => @sort, "page" => "1", "page_size" => "1"}
+  @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => @sort}
   @valid_params_with_unexpected_fields %{"search" => "abc", "adult" => "false", "unexpected" => "2"}
-  @valid_param_types %{search: :string, adult: :boolean, page: :integer, page_size: :integer}
+  @valid_param_types %{search: :string, adult: :boolean, sort: @sort_types, page: :integer, page_size: :integer}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
