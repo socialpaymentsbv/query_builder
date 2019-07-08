@@ -8,6 +8,7 @@ Elixir library for building queries with Ecto. Includes filtering with user-supp
 - Must have functions to add and remove filter parameters. Currently they can only be specified when creating the `QueryBuilder`.
 - Must rework filter functions so as to allow a single function per filter. This means an API like `put_filter_function`, `clear_filter_function` and `has_filter_function?`.
 - Add a test for parameters without pagination.
+- Add a test for `maybe_put_default_pagination`.
 - `put_pagination` will not parse strings values. Only integers are allowed. Maybe this should be changed so as to allow them and use Ecto's Changeset casting on them beyond the `new` function?
 - No custom errors are raised in this library.
 - No test for ignoring unexpected filter parameters yet.
