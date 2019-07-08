@@ -193,8 +193,17 @@ defmodule QBTest do
     qb =
       QB.new(Repo, User, %{}, @valid_param_types)
       |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+      |> QB.put_filters(%{search: "custom", adult: true})
+
+    assert %{search: "custom", adult: true} === qb.filters
+  end
+
+  test "explicitly set filters override initial parameters" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
       |> QB.put_filters(%{search: "huh?", adult: false})
 
     assert %{search: "huh?", adult: false} === qb.filters
   end
+
 end
