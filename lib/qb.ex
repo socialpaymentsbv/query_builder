@@ -24,10 +24,8 @@ defmodule QB do
   @type page :: pos_integer()
   @type page_size :: pos_integer()
   @type pagination :: %{page: page(), page_size: page_size()}
-  @type optional_pagination :: pagination() | nil
+  @type optional_pagination :: pagination() | %{}
   # really ugly but we cannot specify a map with string keys as we can with the atom keys.
-  @type string_keyed_pagination :: %{required(String.t) => pos_integer()}
-  @type param_pagination :: pagination() | string_keyed_pagination() | nil
   @type optional_changeset :: Ecto.Changeset.t() | nil
   @type t :: %__MODULE__{
     repo: repo(),
@@ -56,11 +54,11 @@ defmodule QB do
   defstruct [
     repo: nil,
     base_query: nil,
-    params: nil,
-    param_types: nil,
+    params: %{},
+    param_types: %{},
     filters: %{},
     filter_functions: %{},
-    pagination: nil,
+    pagination: %{},
     changeset: nil
   ]
 
@@ -130,15 +128,16 @@ defmodule QB do
     qb
   end
 
-  @spec clear_pagination(t()) :: t()
-  def clear_pagination(%__MODULE__{} = qb) do
-    put_pagination(qb, nil)
+  @spec remove_pagination(t()) :: t()
+  def remove_pagination(%__MODULE__{} = qb) do
+    put_pagination(qb, %{})
   end
 
   @spec put_pagination(t(), optional_pagination()) :: t()
-  def put_pagination(%__MODULE__{} = qb, nil) do
+  def put_pagination(%__MODULE__{} = qb, empty_pagination)
+      when empty_pagination == %{} do
     %__MODULE__{qb |
-      pagination: nil
+      pagination: %{}
     }
   end
 
@@ -195,7 +194,8 @@ defmodule QB do
   end
 
   @spec fetch(t()) :: term()
-  def fetch(%__MODULE__{repo: repo, pagination: nil} = qb) do
+  def fetch(%__MODULE__{repo: repo, pagination: empty_pagination} = qb)
+      when empty_pagination == %{} do
     qb
     |> __MODULE__.query()
     |> repo.all()

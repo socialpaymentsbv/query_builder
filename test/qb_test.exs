@@ -7,6 +7,7 @@ defmodule QBTest do
   import Ecto.Query
 
   @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "1"}
+  @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc"}
   @valid_param_types %{search: :string, adult: :boolean, page: :integer, page_size: :integer}
 
   setup do
@@ -67,6 +68,13 @@ defmodule QBTest do
     assert inspect(expected_query) == inspect(QB.query(qb))
   end
 
+  test "create with valid params and valid types, without pagination" do
+    qb =
+      QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
+
+    assert %{} === qb.pagination
+  end
+
   test "removing filter function works" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
@@ -93,7 +101,7 @@ defmodule QBTest do
       QB.new(Repo, User, @valid_params, @valid_param_types)
       |> QB.put_filter_function(:search, &filter_users_by_search/2)
       |> QB.put_filter_function(:adult, &filter_users_by_adult/2)
-      |> QB.clear_pagination()
+      |> QB.remove_pagination()
       |> QB.fetch()
 
     assert fetched_users == [expected_user]
@@ -113,9 +121,9 @@ defmodule QBTest do
   test "removing pagination works" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.clear_pagination()
+      |> QB.remove_pagination()
 
-    assert is_nil(qb.pagination)
+    assert %{} === qb.pagination
   end
 
   test "setting pagination works" do
