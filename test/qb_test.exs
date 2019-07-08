@@ -8,6 +8,7 @@ defmodule QBTest do
 
   @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc", "page" => "1", "page_size" => "1"}
   @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => "inserted_at:desc"}
+  @valid_params_with_unexpected_fields %{"search" => "abc", "adult" => "false", "unexpected" => "2"}
   @valid_param_types %{search: :string, adult: :boolean, page: :integer, page_size: :integer}
 
   setup do
@@ -73,6 +74,19 @@ defmodule QBTest do
       QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
 
     assert %{} === qb.pagination
+  end
+
+  test "create with valid params with unexpected fields" do
+    qb =
+      QB.new(Repo, User, @valid_params_with_unexpected_fields, @valid_param_types)
+      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+
+    expected_query =
+      from(
+        u in User,
+        where: ilike(u.name, ^"%abc%") or ilike(u.email, ^"%abc%")
+      )
+    assert inspect(expected_query) == inspect(QB.query(qb))
   end
 
   test "removing filter function works" do
