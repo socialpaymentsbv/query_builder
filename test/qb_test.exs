@@ -46,8 +46,8 @@ defmodule QBTest do
   test "create with valid params and valid types" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.add_filter_function(:search, &filter_users_by_search/2)
-      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+      |> QB.put_filter_function(:adult, &filter_users_by_adult/2)
 
     assert Repo === qb.repo
     assert User === qb.base_query
@@ -70,8 +70,8 @@ defmodule QBTest do
   test "fetching correct records from database through an Ecto Repo", %{adult_user: expected_user} do
     fetched_users =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.add_filter_function(:search, &filter_users_by_search/2)
-      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+      |> QB.put_filter_function(:adult, &filter_users_by_adult/2)
       |> QB.query()
       |> Repo.all()
 
@@ -81,8 +81,8 @@ defmodule QBTest do
   test "fetching correct records from database through the fetch function", %{adult_user: expected_user} do
     fetched_users =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.add_filter_function(:search, &filter_users_by_search/2)
-      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+      |> QB.put_filter_function(:adult, &filter_users_by_adult/2)
       |> QB.clear_pagination()
       |> QB.fetch()
 
@@ -92,8 +92,8 @@ defmodule QBTest do
   test "database pagination works", %{adult_user: expected_user} do
     fetched_users =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.add_filter_function(:search, &filter_users_by_search/2)
-      |> QB.add_filter_function(:adult, &filter_users_by_adult/2)
+      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+      |> QB.put_filter_function(:adult, &filter_users_by_adult/2)
       |> QB.fetch()
 
     assert match?(%Scrivener.Page{}, fetched_users)

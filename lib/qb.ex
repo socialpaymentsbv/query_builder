@@ -171,8 +171,8 @@ defmodule QB do
     }
   end
 
-  @spec add_filter_function(t(), field(), filter_fun()) :: t()
-  def add_filter_function(%__MODULE__{filter_functions: filter_functions} = qb, field, filter_fun)
+  @spec put_filter_function(t(), field(), filter_fun()) :: t()
+  def put_filter_function(%__MODULE__{filter_functions: filter_functions} = qb, field, filter_fun)
       when is_field(field) and is_filter_function(filter_fun) do
     %__MODULE__{qb |
       filter_functions: Map.put(filter_functions, field, filter_fun)
