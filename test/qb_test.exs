@@ -142,7 +142,7 @@ defmodule QBTest do
 
   test "setting pagination works" do
     qb =
-      QB.new(Repo, User, @valid_params, @valid_param_types)
+      QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
       |> QB.put_pagination(%{page: 3, page_size: 20})
 
     assert %{page: 3, page_size: 20} === qb.pagination
@@ -158,9 +158,17 @@ defmodule QBTest do
 
   test "default pagination is not applied when a user pagination is supplied" do
     qb =
-      QB.new(Repo, User, @valid_params, @valid_param_types)
+      QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
       |> QB.put_pagination(%{page: 3, page_size: 20})
       |> QB.maybe_put_default_pagination(QB.default_pagination())
+
+    assert %{page: 3, page_size: 20} === qb.pagination
+  end
+
+  test "explicit changing of pagination overwrites initial parameters" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.put_pagination(%{page: 3, page_size: 20})
 
     assert %{page: 3, page_size: 20} === qb.pagination
   end
