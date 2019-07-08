@@ -131,6 +131,11 @@ defmodule QB do
 
   @spec clear_pagination(t()) :: t()
   def clear_pagination(%__MODULE__{} = qb) do
+    put_pagination(qb, nil)
+  end
+
+  @spec put_pagination(t(), optional_pagination()) :: t()
+  def put_pagination(%__MODULE__{} = qb, nil) do
     %__MODULE__{qb |
       pagination: nil
     }
