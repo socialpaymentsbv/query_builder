@@ -62,13 +62,14 @@ defmodule QBTest do
     assert match?(%{search: fun_c, adult: fun_a} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filter_functions)
     assert %{search: "clubcollect", adult: true} === qb.filters
     assert %{page: 1, page_size: 1} === qb.pagination
-    assert [birthdate: :desc, inserted_at: :asc] === qb.sort
+    assert [desc: :birthdate, asc: :inserted_at] === qb.sort
 
     expected_query =
       from(
         u in User,
         where: fragment("date_part('years', age(now(), ?)) > 18", u.birthdate),
-        where: ilike(u.name, ^"%clubcollect%") or ilike(u.email, ^"%clubcollect%")
+        where: ilike(u.name, ^"%clubcollect%") or ilike(u.email, ^"%clubcollect%"),
+        order_by: [desc: u.birthdate, asc: u.inserted_at]
       )
     assert inspect(expected_query) == inspect(QB.query(qb))
   end

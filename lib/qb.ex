@@ -3,6 +3,8 @@ defmodule QB do
   TODO
   """
 
+  import Ecto.Query
+
   @default_pagination %{page: 1, page_size: 50}
 
   @pagination_param_types %{page: :integer, page_size: :integer}
@@ -194,7 +196,7 @@ defmodule QB do
           sort_clauses =
             sort
             |> Enum.map(&(&1 |> Map.to_list() |> hd()))
-            |> Enum.map(fn {k, v} -> {String.to_atom(k), String.to_atom(v)} end)
+            |> Enum.map(fn {k, v} -> {String.to_atom(v), String.to_atom(k)} end)
 
           Ecto.Changeset.put_change(cs, @sort_key, sort_clauses)
         end
@@ -276,10 +278,16 @@ defmodule QB do
   end
 
   @spec query(t()) :: query()
-  def query(%__MODULE__{base_query: base_query, filter_functions: filter_functions} = qb) do
-    Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->
+  def query(%__MODULE__{base_query: base_query, filter_functions: filter_functions, sort: sort} = qb) do
+    q = Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->
       filter_fun.(acc_query, qb.filters[field])
     end)
+
+    if sort !== [] do
+      order_by(q, [_], ^sort)
+    else
+      q
+    end
   end
 
   @spec fetch(t()) :: term()
