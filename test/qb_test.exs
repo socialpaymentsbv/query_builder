@@ -9,7 +9,6 @@ defmodule QBTest do
   @valid_sort [%{"birthdate" => "desc"}, %{"inserted_at" => "asc"}]
 
   @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => @valid_sort, "page" => "1", "page_size" => "1"}
-  @valid_params_without_sort %{"search" => "clubcollect", "adult" => "true", "page" => "1", "page_size" => "1"}
   @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => @valid_sort}
   @valid_params_with_unexpected_fields %{"search" => "abc", "adult" => "false", "unexpected" => "2"}
   @valid_param_types %{search: :string, adult: :boolean}
