@@ -5,16 +5,25 @@ defmodule QB do
 
   @default_pagination %{page: 1, page_size: 50}
 
-  @special_parameters ~w(sort page page_size)
-  @special_param_types %{page: :integer, page_size: :integer}
+  @pagination_param_types %{page: :integer, page_size: :integer}
+  @page_parameter "page"
+  @page_size_parameter "page_size"
+  @pagination_parameters [@page_parameter, @page_size_parameter]
 
-  @pagination_parameters ~w(page page_size)
+  @sort_param_types %{sort: {:array, {:map, :string}}}
+  @sort_key :sort
+  @sort_parameter "sort"
+  @sort_parameters [@sort_parameter]
+  @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
+
+  @special_parameters @pagination_parameters ++ @sort_parameters
+  @special_param_types Map.merge(@pagination_param_types, @sort_param_types)
 
   @type repo :: Ecto.Repo.t()
   # we cannot check more strictly since there is no way to check if a struct implements the `Ecto.Queryable` protocol.
   @type query :: term()
   @type field :: atom()
-  @type params :: %{required(String.t()) => String.t()}
+  @type params :: %{required(String.t()) => term()}
   @type param_type :: term()
   @type param_types :: %{required(field()) => param_type()}
   @type filter_value :: term()
@@ -25,6 +34,9 @@ defmodule QB do
   @type page_size :: pos_integer()
   @type pagination :: %{page: page(), page_size: page_size()}
   @type optional_pagination :: pagination() | %{}
+  @type sort_direction :: :asc | :asc_nulls_first | :asc_nulls_last | :desc | :desc_nulls_first | :desc_nulls_last
+  @type sort_clause :: {field(), sort_direction()}
+  @type sort :: [sort_clause()]
   # really ugly but we cannot specify a map with string keys as we can with the atom keys.
   @type optional_changeset :: Ecto.Changeset.t() | nil
   @type t :: %__MODULE__{
@@ -35,6 +47,7 @@ defmodule QB do
     filters: filters(),
     filter_functions: filter_functions(),
     pagination: optional_pagination(),
+    sort: sort(),
     changeset: optional_changeset()
   }
 
@@ -59,6 +72,7 @@ defmodule QB do
     filters: %{},
     filter_functions: %{},
     pagination: %{},
+    sort: [],
     changeset: nil
   ]
 
@@ -78,13 +92,18 @@ defmodule QB do
     |> cast_params()
     |> extract_filters()
     |> maybe_extract_pagination()
+    |> cast_sort()
   end
 
   @spec cast_params(t()) :: t()
   defp cast_params(%__MODULE__{params: params, param_types: param_types} = qb)
        when is_params(params) and is_param_types(param_types) do
     %__MODULE__{qb |
-      changeset: Ecto.Changeset.cast({%{}, param_types}, params, Map.keys(param_types))
+      changeset: Ecto.Changeset.cast(
+        {%{}, param_types},
+        Map.drop(params, @sort_parameters),
+        Map.keys(param_types)
+      )
     }
   end
 
@@ -127,6 +146,76 @@ defmodule QB do
   defp maybe_extract_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
     qb
   end
+
+  @spec cast_sort_clauses(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
+  defp cast_sort_clauses(%Ecto.Changeset{} = cs, sort)
+       when is_list(sort) do
+    # Check if there is even one sort clause that's not a map.
+    idx_not_map = Enum.find_index(sort, &(not is_map(&1)))
+    if not is_nil(idx_not_map) do
+      Ecto.Changeset.add_error(
+        cs,
+        @sort_key,
+        "clause #{idx_not_map} is not a map",
+        [index: idx_not_map, clause: :not_a_map]
+      )
+    else
+      # Check if there is even one sort clause that's not a single-keyed map.
+      idx_not_one_key_map = Enum.find_index(sort, &(map_size(&1) != 1))
+      if not is_nil(idx_not_one_key_map) do
+        Ecto.Changeset.add_error(
+          cs,
+          @sort_key,
+          "clause #{idx_not_one_key_map} is not a one-key map",
+          [index: idx_not_one_key_map, clause: :not_a_one_key_map]
+        )
+      else
+        # Check if there are sort direction clauses that are not in the
+        # expected list of valid values by Ecto.
+        idx_invalid_direction = Enum.find_index(sort, fn(clause) ->
+          {_field, direction} =
+            clause
+            |> Map.to_list()
+            |> hd()
+
+          direction not in @sort_direction_strings
+        end)
+
+        if not is_nil(idx_invalid_direction) do
+          Ecto.Changeset.add_error(
+            cs,
+            @sort_key,
+            "clause #{idx_invalid_direction} sorting direction is not one of: #{Enum.join(@sort_direction_strings, ", ")}",
+            [index: idx_invalid_direction, clause: :invalid_direction]
+          )
+        else
+          # If the shape of the sort clauses is correct, add the changes
+          # to the changeset programmatically (no further validation).
+          sort_clauses =
+            sort
+            |> Enum.map(&(&1 |> Map.to_list() |> hd()))
+            |> Enum.map(fn {k, v} -> {String.to_atom(k), String.to_atom(v)} end)
+
+          Ecto.Changeset.put_change(cs, @sort_key, sort_clauses)
+        end
+      end
+    end
+  end
+
+  defp cast_sort_clauses(%Ecto.Changeset{} = cs, _) do
+    Ecto.Changeset.add_error(cs, @sort_key, "must be a list of sort clauses", [clauses: :not_a_list])
+  end
+
+  @spec cast_sort(t()) :: t()
+  defp cast_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = qb) do
+    modified_cs = cast_sort_clauses(cs, sort)
+    %__MODULE__{qb |
+      changeset: modified_cs,
+      sort: Ecto.Changeset.get_change(modified_cs, @sort_key) || []
+    }
+  end
+
+  defp cast_sort(%__MODULE__{} = qb), do: qb
 
   @spec remove_pagination(t()) :: t()
   def remove_pagination(%__MODULE__{} = qb) do
@@ -206,5 +295,19 @@ defmodule QB do
     qb
     |> __MODULE__.query()
     |> repo.paginate(pagination)
+  end
+
+  def has_errors?(%__MODULE__{changeset: %Ecto.Changeset{} = cs}) do
+    cs.valid? and cs.errors === []
+  end
+
+  def has_error?(%__MODULE__{changeset: %Ecto.Changeset{errors: errors}}, field)
+      when is_field(field) do
+    Keyword.has_key?(errors, field)
+  end
+
+  def get_error(%__MODULE__{changeset: %Ecto.Changeset{errors: errors}}, field)
+      when is_field(field) do
+    Keyword.get(errors, field)
   end
 end

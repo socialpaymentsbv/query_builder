@@ -6,13 +6,14 @@ defmodule QBTest do
 
   import Ecto.Query
 
-  @sort [%{"birthdate" => "desc"}, %{"inserted_at" => "desc"}]
-  @sort_types {:array, :map}
+  @valid_sort [%{"birthdate" => "desc"}, %{"inserted_at" => "asc"}]
 
-  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => @sort, "page" => "1", "page_size" => "1"}
-  @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => @sort}
+  @valid_params %{"search" => "clubcollect", "adult" => "true", "sort" => @valid_sort, "page" => "1", "page_size" => "1"}
+  @valid_params_without_sort %{"search" => "clubcollect", "adult" => "true", "page" => "1", "page_size" => "1"}
+  @valid_params_without_pagination %{"search" => "clubcollect", "adult" => "true", "sort" => @valid_sort}
   @valid_params_with_unexpected_fields %{"search" => "abc", "adult" => "false", "unexpected" => "2"}
-  @valid_param_types %{search: :string, adult: :boolean, sort: @sort_types, page: :integer, page_size: :integer}
+  @valid_param_types %{search: :string, adult: :boolean}
+  @valid_param_keys Map.keys(@valid_param_types)
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -48,7 +49,7 @@ defmodule QBTest do
 
   defp filter_users_by_adult(query, false), do: query
 
-  test "create with valid params and valid types" do
+  test "create with valid params and valid types, including pagination and sorting" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
       |> QB.put_filter_function(:search, &filter_users_by_search/2)
@@ -58,10 +59,11 @@ defmodule QBTest do
     assert User === qb.base_query
     assert match?(%Ecto.Changeset{valid?: true, errors: []}, qb.changeset)
     assert @valid_params === qb.params
-    assert @valid_param_types === qb.param_types
+    assert @valid_param_types === Map.take(qb.param_types, @valid_param_keys)
     assert match?(%{search: fun_c, adult: fun_a} when is_function(fun_c, 2) and is_function(fun_a, 2), qb.filter_functions)
     assert %{search: "clubcollect", adult: true} === qb.filters
     assert %{page: 1, page_size: 1} === qb.pagination
+    assert [birthdate: :desc, inserted_at: :asc] === qb.sort
 
     expected_query =
       from(
@@ -209,4 +211,40 @@ defmodule QBTest do
     assert %{search: "huh?", adult: false} === qb.filters
   end
 
+  test "passing sort clauses that are not a list is reported" do
+    err =
+      QB.new(Repo, User, %{"search" => "abc", "sort" => {false, 1}}, @valid_param_types)
+      |> QB.get_error(:sort)
+
+    assert match?({_msg, [clauses: :not_a_list]}, err)
+  end
+
+  test "passing sort clauses that are not all maps is reported" do
+    err =
+      QB.new(Repo, User, %{"search" => "abc", "sort" => [false, %{"birthdate" => "desc!"}, %{"inserted_at" => "asc"}]}, @valid_param_types)
+      |> QB.get_error(:sort)
+
+    assert match?({_msg, [index: 0, clause: :not_a_map]}, err)
+  end
+
+  test "passing sort clauses that are not all one-key maps is reported" do
+    err =
+      QB.new(Repo, User, %{"search" => "abc", "sort" => [%{"birthdate" => "desc", "inserted_at" => "asc"}]}, @valid_param_types)
+      |> QB.get_error(:sort)
+
+    assert match?({_msg, [index: 0, clause: :not_a_one_key_map]}, err)
+  end
+
+  test "passing sort clauses that have invalid sort directions is reported" do
+    err =
+      QB.new(Repo, User, %{"search" => "abc", "sort" => [%{"birthdate" => "desc"}, %{"inserted_at" => "asc!"}]}, @valid_param_types)
+      |> QB.get_error(:sort)
+
+    assert match?({_msg, [index: 1, clause: :invalid_direction]}, err)
+  end
+
+  test "passing valid params without sort works" do
+    qb = QB.new(Repo, User, %{"search" => "abc"}, @valid_param_types)
+    assert qb.sort === []
+  end
 end
