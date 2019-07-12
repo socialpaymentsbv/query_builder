@@ -48,6 +48,11 @@ defmodule QBTest do
 
   defp filter_users_by_adult(query, false), do: query
 
+  defp verify_filter_params(changeset) do
+    changeset
+    |> Ecto.Changeset.validate_length(:search, min: 2)
+  end
+
   test "create with valid params and valid types, including pagination and sorting" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
@@ -246,5 +251,13 @@ defmodule QBTest do
   test "passing valid params without sort works" do
     qb = QB.new(Repo, User, %{"search" => "abc"}, @valid_param_types)
     assert qb.sort === []
+  end
+
+  test "reports errors from custom validations" do
+    err =
+      QB.new(Repo, User, %{"search" => "a"}, @valid_param_types, &verify_filter_params/1)
+      |> QB.get_error(:search)
+
+    assert match?({_msg, [count: 2, validation: :length, kind: :min, type: :string]}, err)
   end
 end
