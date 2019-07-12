@@ -52,6 +52,7 @@ defmodule QB do
     sort: sort(),
     changeset: optional_changeset()
   }
+  @type validator :: (Ecto.Changeset.t() -> Ecto.Changeset.t())
 
   defguard is_module(m) when is_atom(m)
   defguard is_repo(r) when is_module(r)
@@ -81,8 +82,8 @@ defmodule QB do
   @spec default_pagination() :: pagination()
   def default_pagination(), do: @default_pagination
 
-  @spec new(repo(), query(), params(), param_types()) :: t()
-  def new(repo, base_query, params, param_types)
+  @spec new(repo(), query(), params(), param_types(), validator()) :: t()
+  def new(repo, base_query, params, param_types, validator \\ &(&1))
       when is_repo(repo) and is_query(base_query) and is_params(params)
       and is_param_types(param_types) do
     %__MODULE__{
@@ -91,21 +92,21 @@ defmodule QB do
       params: params,
       param_types: Map.merge(param_types, @special_param_types)
     }
-    |> cast_params()
+    |> cast_params(validator)
     |> extract_filters()
     |> maybe_extract_pagination()
     |> cast_sort()
   end
 
-  @spec cast_params(t()) :: t()
-  defp cast_params(%__MODULE__{params: params, param_types: param_types} = qb)
+  @spec cast_params(t(), validator()) :: t()
+  defp cast_params(%__MODULE__{params: params, param_types: param_types} = qb, validator)
        when is_params(params) and is_param_types(param_types) do
+    changeset =
+      {%{}, param_types}
+      |> Ecto.Changeset.cast(Map.drop(params, @sort_parameters), Map.keys(param_types))
+      |> validator.()
     %__MODULE__{qb |
-      changeset: Ecto.Changeset.cast(
-        {%{}, param_types},
-        Map.drop(params, @sort_parameters),
-        Map.keys(param_types)
-      )
+      changeset: changeset
     }
   end
 
