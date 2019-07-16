@@ -168,7 +168,7 @@ defmodule QBTest do
   test "default pagination is correct when no user pagination is supplied" do
     qb =
       QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
-      |> QB.maybe_put_default_pagination(QB.default_pagination())
+      |> QB.put_default_pagination(QB.default_pagination())
 
     dp = QB.default_pagination()
 
@@ -181,7 +181,7 @@ defmodule QBTest do
     qb =
       QB.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
       |> QB.put_pagination(%{page: 3, page_size: 20})
-      |> QB.maybe_put_default_pagination(QB.default_pagination())
+      |> QB.put_default_pagination(QB.default_pagination())
 
     assert %{page: 3, page_size: 20} === qb.pagination
     assert 3 === Ecto.Changeset.get_change(qb.changeset, :page)
@@ -201,7 +201,7 @@ defmodule QBTest do
   test "default filters are correct when no user filters are supplied" do
     qb =
       QB.new(Repo, User, %{}, @valid_param_types)
-      |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+      |> QB.put_default_filters(%{search: "huh?", adult: false})
 
     assert %{search: "huh?", adult: false} === qb.filters
     assert "huh?" === Ecto.Changeset.get_change(qb.changeset, :search)
@@ -211,7 +211,7 @@ defmodule QBTest do
   test "default filters are not applied when user filters are supplied" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+      |> QB.put_default_filters(%{search: "huh?", adult: false})
 
     assert %{search: "clubcollect", adult: true} === qb.filters
     assert "clubcollect" === Ecto.Changeset.get_change(qb.changeset, :search)
@@ -221,7 +221,7 @@ defmodule QBTest do
   test "explicitly set filters override defaults" do
     qb =
       QB.new(Repo, User, %{}, @valid_param_types)
-      |> QB.maybe_put_default_filters(%{search: "huh?", adult: false})
+      |> QB.put_default_filters(%{search: "huh?", adult: false})
       |> QB.put_filters(%{search: "custom", adult: true})
 
     assert %{search: "custom", adult: true} === qb.filters
@@ -357,7 +357,7 @@ defmodule QBTest do
   test "default sort does not override parameter sort if they pertain to the same fields" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.maybe_put_default_sort([asc: :birthdate, desc: :inserted_at])
+      |> QB.put_default_sort([asc: :birthdate, desc: :inserted_at])
 
     assert [desc: :birthdate, asc: :inserted_at] === qb.sort
     assert [desc: :birthdate, asc: :inserted_at] === Ecto.Changeset.get_change(qb.changeset, :sort)
@@ -366,7 +366,7 @@ defmodule QBTest do
   test "default sort gets merged with parameter sort if they pertain to different fields" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.maybe_put_default_sort([asc: :id, desc: :updated_at])
+      |> QB.put_default_sort([asc: :id, desc: :updated_at])
 
     assert [desc: :birthdate, asc: :inserted_at, asc: :id, desc: :updated_at] === qb.sort
     assert [desc: :birthdate, asc: :inserted_at, asc: :id, desc: :updated_at] === Ecto.Changeset.get_change(qb.changeset, :sort)
@@ -375,7 +375,7 @@ defmodule QBTest do
   test "default sort gets unconditionally applied if parameters contained no sort" do
     qb =
       QB.new(Repo, User, @valid_params_without_sort, @valid_param_types)
-      |> QB.maybe_put_default_sort([asc: :id, desc: :updated_at])
+      |> QB.put_default_sort([asc: :id, desc: :updated_at])
 
     assert [asc: :id, desc: :updated_at] === qb.sort
     assert [asc: :id, desc: :updated_at] === Ecto.Changeset.get_change(qb.changeset, :sort)

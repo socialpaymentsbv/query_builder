@@ -326,12 +326,12 @@ defmodule QB do
     put_sort(qb, param_sort)
   end
 
-  @spec maybe_put_default_sort(t(), term()) :: t()
-  def maybe_put_default_sort(%__MODULE__{sort: []} = qb, param_sort) do
+  @spec put_default_sort(t(), term()) :: t()
+  def put_default_sort(%__MODULE__{sort: []} = qb, param_sort) do
     put_sort(qb, param_sort)
   end
 
-  def maybe_put_default_sort(%__MODULE__{sort: sort} = qb, param_sort) do
+  def put_default_sort(%__MODULE__{sort: sort} = qb, param_sort) do
     modified_sort = keyword_merge_without_overwriting(sort, param_sort)
     put_sort(qb, modified_sort)
   end
@@ -368,15 +368,15 @@ defmodule QB do
     }
   end
 
-  @spec maybe_put_default_pagination(t(), optional_pagination()) :: t()
-  def maybe_put_default_pagination(%__MODULE__{pagination: pagination} = qb, %{page: page, page_size: page_size} = param_pagination)
+  @spec put_default_pagination(t(), optional_pagination()) :: t()
+  def put_default_pagination(%__MODULE__{pagination: pagination} = qb, %{page: page, page_size: page_size} = param_pagination)
       when is_page(page) and is_page_size(page_size) do
     modified_pagination = Map.merge(param_pagination, pagination)
     put_pagination(qb, modified_pagination)
   end
 
-  @spec maybe_put_default_filters(t(), params()) :: t()
-  def maybe_put_default_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
+  @spec put_default_filters(t(), params()) :: t()
+  def put_default_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
     modified_filters = Map.merge(param_filters, filters)
     put_params(qb, modified_filters)
   end
