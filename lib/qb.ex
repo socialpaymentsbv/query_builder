@@ -33,6 +33,7 @@ defmodule QB do
   @type param_types :: %{required(field()) => param_type()}
   @type filter_value :: term()
   @type filter_fun :: (query(), term() -> query())
+  @type filter_validator :: (Ecto.Changeset.t() -> Ecto.Changeset.t())
   @type filters :: %{required(field()) => filter_value()}
   @type filter_functions :: %{required(field()) => filter_fun()}
   @type page :: pos_integer()
@@ -64,6 +65,7 @@ defmodule QB do
   defguard is_param_types(p) when is_map(p) and map_size(p) > 0
   defguard is_filter_value(_x) when true
   defguard is_filter_function(f) when is_function(f, 2)
+  defguard is_filter_validator(f) when is_function(f, 1)
   defguard is_pagination(p) when is_nil(p) or (is_map(p) and map_size(p) == 2)
   defguard is_page(n) when is_integer(n) and n > 0
   defguard is_page_size(n) when is_integer(n) and n > 0
@@ -85,30 +87,32 @@ defmodule QB do
   @spec default_pagination() :: pagination()
   def default_pagination(), do: @default_pagination
 
-  @spec new(repo(), query(), params(), param_types()) :: t()
-  def new(repo, base_query, params, param_types)
+  @spec new(repo(), query(), params(), param_types(), filter_validator()) :: t()
+  def new(repo, base_query, params, param_types, filter_validator \\ &(&1))
       when is_repo(repo) and is_query(base_query) and is_params(params)
-      and is_param_types(param_types) do
+      and is_param_types(param_types) and is_filter_validator(filter_validator) do
     %__MODULE__{
       repo: repo,
       base_query: base_query,
       params: params,
       param_types: Map.merge(param_types, @special_param_types)
     }
-    |> put_params(params)
+    |> put_params(params, filter_validator)
     |> cast_filters()
     |> cast_pagination()
     |> cast_sort()
   end
 
-  @spec put_params(t(), params()) :: t()
-  def put_params(%__MODULE__{param_types: param_types} = qb, params)
-      when is_params(params) and is_param_types(param_types) do
+  @spec put_params(t(), params(), filter_validator()) :: t()
+  def put_params(%__MODULE__{param_types: param_types} = qb, params, filter_validator \\ &(&1))
+      when is_params(params) and is_param_types(param_types)
+      and is_filter_validator(filter_validator) do
     modified_cs = Ecto.Changeset.cast(
       {%{}, param_types},
       params,
       Map.keys(param_types)
     )
+    |> filter_validator.()
 
     %__MODULE__{qb |
       changeset: modified_cs,
