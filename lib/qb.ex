@@ -10,12 +10,15 @@ defmodule QB do
   @pagination_param_types %{page: :integer, page_size: :integer}
   @page_parameter "page"
   @page_size_parameter "page_size"
+  @page_key :page
+  @page_size_key :page_size
   @pagination_parameters [@page_parameter, @page_size_parameter]
 
   @sort_param_types %{sort: {:array, {:map, :string}}}
   @sort_key :sort
   @sort_parameter "sort"
   @sort_parameters [@sort_parameter]
+  @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
   @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
 
   @special_parameters @pagination_parameters ++ @sort_parameters
@@ -64,6 +67,7 @@ defmodule QB do
   defguard is_pagination(p) when is_nil(p) or (is_map(p) and map_size(p) == 2)
   defguard is_page(n) when is_integer(n) and n > 0
   defguard is_page_size(n) when is_integer(n) and n > 0
+  defguard is_sort_direction(x) when x in @sort_direction_atoms
 
   @enforce_keys [:repo, :base_query, :params, :param_types]
   defstruct [
@@ -91,26 +95,29 @@ defmodule QB do
       params: params,
       param_types: Map.merge(param_types, @special_param_types)
     }
-    |> cast_params()
-    |> extract_filters()
-    |> maybe_extract_pagination()
+    |> put_params(params)
+    |> cast_filters()
+    |> cast_pagination()
     |> cast_sort()
   end
 
-  @spec cast_params(t()) :: t()
-  defp cast_params(%__MODULE__{params: params, param_types: param_types} = qb)
-       when is_params(params) and is_param_types(param_types) do
+  @spec put_params(t(), params()) :: t()
+  def put_params(%__MODULE__{param_types: param_types} = qb, params)
+      when is_params(params) and is_param_types(param_types) do
+    modified_cs = Ecto.Changeset.cast(
+      {%{}, param_types},
+      params,
+      Map.keys(param_types)
+    )
+
     %__MODULE__{qb |
-      changeset: Ecto.Changeset.cast(
-        {%{}, param_types},
-        Map.drop(params, @sort_parameters),
-        Map.keys(param_types)
-      )
+      changeset: modified_cs,
+      filters: Ecto.Changeset.apply_changes(modified_cs)
     }
   end
 
-  @spec extract_filters(t()) :: t()
-  defp extract_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} = qb) do
+  @spec cast_filters(t()) :: t()
+  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} = qb) do
     filters =
       params
       |> Map.drop(@special_parameters)
@@ -125,12 +132,12 @@ defmodule QB do
     }
   end
 
-  defp extract_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
+  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
     qb
   end
 
-  @spec maybe_extract_pagination(t()) :: t()
-  defp maybe_extract_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} = qb) do
+  @spec cast_pagination(t()) :: t()
+  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} = qb) do
     pagination =
       params
       |> Map.take(@pagination_parameters)
@@ -145,7 +152,7 @@ defmodule QB do
     }
   end
 
-  defp maybe_extract_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
+  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
     qb
   end
 
@@ -219,46 +226,161 @@ defmodule QB do
 
   defp cast_sort(%__MODULE__{} = qb), do: qb
 
-  @spec remove_pagination(t()) :: t()
-  def remove_pagination(%__MODULE__{} = qb) do
+  @spec keyword_merge_without_overwriting(keyword, keyword) :: keyword
+  defp keyword_merge_without_overwriting(kw0, kw1)
+      when is_list(kw0) and is_list(kw1) do
+    Enum.reduce(kw1, kw0, fn {v, k}, kw ->
+      if List.keymember?(kw, k, 1) do
+        kw
+      else
+        List.keystore(kw, v, 1, {v, k})
+      end
+    end)
+  end
+
+  @spec validate_sort(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
+  defp validate_sort(%Ecto.Changeset{} = cs, sort)
+      when is_list(sort) do
+    idx_invalid_direction = Enum.find_index(sort, fn {direction, _field} ->
+      direction not in @sort_direction_atoms
+    end)
+
+    if not is_nil(idx_invalid_direction) do
+      Ecto.Changeset.add_error(
+       cs,
+       @sort_key,
+       "clause #{idx_invalid_direction} sorting direction is not one of: #{Enum.join(@sort_direction_strings, ", ")}",
+        [index: idx_invalid_direction, clause: :invalid_direction]
+      )
+    else
+      idx_invalid_field = Enum.find_index(sort, fn {_direction, field} ->
+        not(is_binary(field) or is_atom(field))
+      end)
+
+      if not is_nil(idx_invalid_field) do
+        Ecto.Changeset.add_error(
+         cs,
+         @sort_key,
+         "clause #{idx_invalid_field} sorting field is not a string or atom",
+          [index: idx_invalid_field, clause: :invalid_field]
+        )
+      else
+        cs
+      end
+    end
+  end
+
+  defp validate_sort(%Ecto.Changeset{} = cs, _) do
+    Ecto.Changeset.add_error(
+     cs,
+     @sort_key,
+     "must be a list of sort clauses",
+      [clauses: :not_a_list]
+    )
+  end
+
+  @spec put_sort(t(), term()) :: t()
+  def put_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb, sort) do
+    original_cs = %Ecto.Changeset{cs |
+      errors: List.keydelete(cs.errors, @sort_key, 0)
+    }
+    errors_before = length(original_cs.errors)
+    modified_cs = validate_sort(original_cs, sort)
+    errors_after = length(modified_cs.errors)
+
+    if errors_before == errors_after do
+      %__MODULE__{qb |
+        sort: sort,
+        changeset: Ecto.Changeset.put_change(modified_cs, @sort_key, sort)
+      }
+    else
+      %__MODULE__{qb |
+        changeset: modified_cs
+      }
+    end
+  end
+
+  @spec clear_sort(t()) :: t()
+  def clear_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb) do
+    %__MODULE__{qb |
+      sort: [],
+      changeset: Ecto.Changeset.delete_change(cs, @sort_key)
+    }
+  end
+
+  @spec remove_sort(t(), field()) :: t()
+  def remove_sort(%__MODULE__{sort: sort} = qb, field)
+      when is_field(field) do
+    param_sort = List.keydelete(sort, field, 1)
+    put_sort(qb, param_sort)
+  end
+
+  @spec add_sort(t(), field(), sort_direction()) :: t()
+  def add_sort(%__MODULE__{sort: sort} = qb, field, direction)
+      when is_field(field) and is_sort_direction(direction) do
+    param_sort = sort ++ [{direction, field}]
+    put_sort(qb, param_sort)
+  end
+
+  @spec maybe_put_default_sort(t(), term()) :: t()
+  def maybe_put_default_sort(%__MODULE__{sort: []} = qb, param_sort) do
+    put_sort(qb, param_sort)
+  end
+
+  def maybe_put_default_sort(%__MODULE__{sort: sort} = qb, param_sort) do
+    modified_sort = keyword_merge_without_overwriting(sort, param_sort)
+    put_sort(qb, modified_sort)
+  end
+
+  @spec clear_pagination(t()) :: t()
+  def clear_pagination(%__MODULE__{} = qb) do
     put_pagination(qb, %{})
   end
 
   @spec put_pagination(t(), optional_pagination()) :: t()
-  def put_pagination(%__MODULE__{} = qb, empty_pagination)
+  def put_pagination(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb, empty_pagination)
       when empty_pagination == %{} do
+    modified_cs =
+      cs
+      |> Ecto.Changeset.delete_change(@page_key)
+      |> Ecto.Changeset.delete_change(@page_size_key)
+
     %__MODULE__{qb |
-      pagination: %{}
+      pagination: %{},
+      changeset: modified_cs
     }
   end
 
-  def put_pagination(%__MODULE__{} = qb, %{page: page, page_size: page_size})
+  def put_pagination(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb, %{page: page, page_size: page_size})
       when is_page(page) and is_page_size(page_size) do
+    modified_cs =
+      cs
+      |> Ecto.Changeset.put_change(@page_key, page)
+      |> Ecto.Changeset.put_change(@page_size_key, page_size)
+
     %__MODULE__{qb |
-      pagination: %{page: page, page_size: page_size}
+      pagination: %{page: page, page_size: page_size},
+      changeset: modified_cs
     }
   end
 
   @spec maybe_put_default_pagination(t(), optional_pagination()) :: t()
   def maybe_put_default_pagination(%__MODULE__{pagination: pagination} = qb, %{page: page, page_size: page_size} = param_pagination)
       when is_page(page) and is_page_size(page_size) do
-    %__MODULE__{qb |
-      pagination: Map.merge(param_pagination, pagination)
-    }
+    modified_pagination = Map.merge(param_pagination, pagination)
+    put_pagination(qb, modified_pagination)
   end
 
   @spec maybe_put_default_filters(t(), params()) :: t()
   def maybe_put_default_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
-    %__MODULE__{qb |
-      filters: Map.merge(param_filters, filters)
-    }
+    modified_filters = Map.merge(param_filters, filters)
+    put_params(qb, modified_filters)
   end
 
   @spec put_filters(t(), filters()) :: t()
   def put_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
-    %__MODULE__{qb |
-      filters: Map.merge(filters, param_filters)
-    }
+    modified_filters = Map.merge(filters, param_filters)
+    put_params(qb, modified_filters)
   end
 
   @spec put_filter_function(t(), field(), filter_fun()) :: t()
