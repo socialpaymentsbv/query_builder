@@ -98,9 +98,6 @@ defmodule QB do
       param_types: Map.merge(param_types, @special_param_types)
     }
     |> put_params(params, filter_validator)
-    |> cast_filters()
-    |> cast_pagination()
-    |> cast_sort()
   end
 
   @spec put_params(t(), params(), filter_validator()) :: t()
@@ -115,9 +112,13 @@ defmodule QB do
     |> filter_validator.()
 
     %__MODULE__{qb |
+      params: params,
       changeset: modified_cs,
       filters: Ecto.Changeset.apply_changes(modified_cs)
     }
+    |> cast_filters()
+    |> cast_pagination()
+    |> cast_sort()
   end
 
   @spec cast_filters(t()) :: t()
@@ -126,7 +127,7 @@ defmodule QB do
       params
       |> Map.drop(@special_parameters)
       |> Enum.map(fn {key, _} ->
-        k = String.to_atom(key)
+        k = if is_binary(key), do: String.to_atom(key), else: key
         {k, Ecto.Changeset.get_change(cs, k)}
       end)
       |> Map.new()
