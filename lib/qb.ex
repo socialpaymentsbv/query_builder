@@ -332,7 +332,11 @@ defmodule QB do
     put_sort(qb, param_sort)
   end
 
-  def put_default_sort(%__MODULE__{sort: sort} = qb, param_sort) do
+  def put_default_sort(%__MODULE__{sort: sort} = qb, _param_sort) do
+    qb
+  end
+
+  def merge_default_sort(%__MODULE__{sort: sort} = qb, param_sort) do
     modified_sort = keyword_merge_without_overwriting(sort, param_sort)
     put_sort(qb, modified_sort)
   end

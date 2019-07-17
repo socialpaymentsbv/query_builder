@@ -363,10 +363,19 @@ defmodule QBTest do
     assert [desc: :birthdate, asc: :inserted_at] === Ecto.Changeset.get_change(qb.changeset, :sort)
   end
 
+  test "default sort does not override parameter sort even if they pertain to different fields" do
+    qb =
+      QB.new(Repo, User, @valid_params, @valid_param_types)
+      |> QB.put_default_sort([asc: :email])
+
+    assert [desc: :birthdate, asc: :inserted_at] === qb.sort
+    assert [desc: :birthdate, asc: :inserted_at] === Ecto.Changeset.get_change(qb.changeset, :sort)
+  end
+
   test "default sort gets merged with parameter sort if they pertain to different fields" do
     qb =
       QB.new(Repo, User, @valid_params, @valid_param_types)
-      |> QB.put_default_sort([asc: :id, desc: :updated_at])
+      |> QB.merge_default_sort([asc: :id, desc: :updated_at])
 
     assert [desc: :birthdate, asc: :inserted_at, asc: :id, desc: :updated_at] === qb.sort
     assert [desc: :birthdate, asc: :inserted_at, asc: :id, desc: :updated_at] === Ecto.Changeset.get_change(qb.changeset, :sort)
