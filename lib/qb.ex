@@ -332,7 +332,7 @@ defmodule QB do
     put_sort(qb, param_sort)
   end
 
-  def put_default_sort(%__MODULE__{sort: sort} = qb, _param_sort) do
+  def put_default_sort(%__MODULE__{sort: _current_sort} = qb, _param_sort) do
     qb
   end
 
