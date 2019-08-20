@@ -104,6 +104,70 @@ defmodule QB do
   ```
 
   The struct presents validated params for easy debugging.
+
+  ### Validation
+
+  Before building queries, it is beneficial to validate that
+  incoming params are valid.
+  `QB.new` requires passing param types. See `Ecto.Changeset.cast/4` for examples of schemaless changesets.
+
+  If your usecase requires additional validations,
+  you can pass an additional validator as the fifth parameter to `QB.new/5`
+  `t:filter_validator/0` takes `Ecto.Changeset` right after initial cast
+  as an argument and should also return the changeset after applying validations.
+
+  ### Strings vs Atoms
+
+  Only initial param list allows string keys.
+  `QB` uses `Ecto.Changeset` internally so all filter and order functions
+  expect the keys to be atoms.
+
+  ### Default params
+
+  Both for filtering and ordering, it is possible to modify the initial params.
+  There is a family of functions starting with `put_`, `put_default` and `clear_`.
+  All those functions expect atom keys as indicated in previous section.
+
+  `put_*` functions modify the param unconditionally setting it to new value.
+  `put_default_*` functions set the param only if it is not present.
+  This is very handy for initial for loads.
+
+  ```
+  UserQueryBuilder.new(%{"search" => "José"})
+  |> QB.put_default_pagination(%{page: 1})
+  ```
+
+  This way, on initial load when "page" is not set, it will default to 1.
+  Later on, when the user goes to next page, the params will be:
+  `%{"search" => "José", "page" => 2}`,
+  the call to `put_default_pagination` will have no effect
+  because defaults don't overwrite parameter values.
+
+  If you really want to overwrite the param, you can use `QB.put_pagination/1`
+
+  ### Filtering
+
+  Filtering requires adding search param to `param_types` (without that step changeset ignores the param),
+  and writing a function that handles the query.
+  See the example at the top of the docs.
+
+  ### Pagination
+
+  Functions for setting, clearing and default pagination are similar
+  to those used for filtering.
+  The main differences are:
+  - you don't have to specify `page` or `page_number` types in `new`
+  - you don't specify function modifying `query`
+
+  ### Sorting
+
+  Sorting is different from filtering and pagination because,
+  it uses a list instead of a map. `QB.put_sort(qb, [asc: :id, desc: :updated_at])`
+  We can't use a map here because order matters.
+
+  ```
+  qb = QB.new(Repo, User, %{"sort" => [asc: :id, desc: :updated_at]})
+  ```
   """
 
   import Ecto.Query
