@@ -1,8 +1,8 @@
-defmodule QB do
+defmodule QueryBuilder do
   @moduledoc ~S"""
-  `QB` reduces boilerplate needed to translate parameters into queries.
+  `QueryBuilder` reduces boilerplate needed to translate parameters into queries.
 
-  ### What problem does `QB` solve?
+  ### What problem does `QueryBuilder` solve?
 
   While writing CRUD applications we discovered we are performing the same tasks repeatedly for each search form:
   a) validate incoming parameters
@@ -10,7 +10,7 @@ defmodule QB do
   c) compose those functions using `Enum.reduce/3`
   d) write a conditional expression to use `Repo.all/2` or `Repo.paginate/2`
 
-  `QB` handles validation, composition and pagination, and requires only
+  `QueryBuilder` handles validation, composition and pagination, and requires only
   specifying how to translate parameters into queries.
 
   Example:
@@ -25,24 +25,24 @@ defmodule QB do
 
   users =
     Repo
-    |> QB.new(User, %{"search" => "José"}, %{search: :string})
-    |> QB.put_filter_function(:search, &filter_users_by_search/2)
-    |> QB.fetch
+    |> QueryBuilder.new(User, %{"search" => "José"}, %{search: :string})
+    |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
+    |> QueryBuilder.fetch
   ```
 
   In above examples the library user specifies a focused function that
   takes query and returns a new query based on the search criteria.
-  `QB` handles parameter validation based on specified types,
+  `QueryBuilder` handles parameter validation based on specified types,
   takes the function to later use it if search parameter is specified,
   and fetches the result with or without pagination (based on parameters).
 
-  The parameters resemble Phoenix parameters but `QB` does not depend on Phoenix.
+  The parameters resemble Phoenix parameters but `QueryBuilder` does not depend on Phoenix.
   The param map is anything that can be turned into an `Ecto.Changeset` for validation.
-  That means `QB` is compatible with Phoenix but can be used without it.
+  That means `QueryBuilder` is compatible with Phoenix but can be used without it.
 
   ### Usage guidelines
 
-  `QB` is based on functions instead of modules.
+  `QueryBuilder` is based on functions instead of modules.
   In smaller projects it can be used directly where needed e.g. in Phoenix controllers.
   However, we've found it beneficial to use it in a separate module for each schema.
 
@@ -53,8 +53,8 @@ defmodule QB do
 
     def new(params) do
       Repo
-      |> QB.new(base_query(), params, @param_types)
-      |> QB.put_filter_function(:search, &filter_users_by_search/2)
+      |> QueryBuilder.new(base_query(), params, @param_types)
+      |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
     end
 
     defp filter_users_by_search(query, search) do
@@ -68,12 +68,12 @@ defmodule QB do
   end
 
   UserQueryBuilder.new(%{"search" => "José"})
-  |> QB.fetch()
+  |> QueryBuilder.fetch()
   ```
 
   In this way, we can reuse the same filter functions in different places,
   e.g. in UI and JSON API.
-  The `UserQueryBuilder.new/1` function is an entry point returning `QB` struct.
+  The `UserQueryBuilder.new/1` function is an entry point returning `QueryBuilder` struct.
   In case our UI and API differs slightly, we can define multiple entry points that allow different params or have slightly different filter functions.
 
   Note that `base_query/0` can use joins and later filter functions
@@ -82,14 +82,14 @@ defmodule QB do
   ### Comparison with other libraries
 
   There is another library that servers similar purpose called `Ecto.Rummage`.
-  `QB` uses functions instead of modules.
+  `QueryBuilder` uses functions instead of modules.
   `Ecto.Rummage` uses hooks which are modules implementing specific behaviour.
   Hooks give more safety but we've found functions easier to use.
 
   `Rummage` provides default hooks that can turn some params into queries automatically.
   E.g. params that match names of fields can become `WHERE field = value`.
   We've found it confusing for queries with joins and multiple bindings,
-  so `QB` forces writing filter functions explicitly.
+  so `QueryBuilder` forces writing filter functions explicitly.
 
   At present we support one way to paginate but that may be subject to change.
 
@@ -99,7 +99,7 @@ defmodule QB do
 
   ```
   Repo
-  |> QB.new(User, %{"search" => "José"}, %{search: :string})
+  |> QueryBuilder.new(User, %{"search" => "José"}, %{search: :string})
   |> IO.inspect
   ```
 
@@ -109,17 +109,17 @@ defmodule QB do
 
   Before building queries, it is beneficial to validate that
   incoming params are valid.
-  `QB.new` requires passing param types. See `Ecto.Changeset.cast/4` for examples of schemaless changesets.
+  `QueryBuilder.new` requires passing param types. See `Ecto.Changeset.cast/4` for examples of schemaless changesets.
 
   If your usecase requires additional validations,
-  you can pass an additional validator as the fifth parameter to `QB.new/5`
+  you can pass an additional validator as the fifth parameter to `QueryBuilder.new/5`
   `t:filter_validator/0` takes `Ecto.Changeset` right after initial cast
   as an argument and should also return the changeset after applying validations.
 
   ### Strings vs Atoms
 
   Only initial param list allows string keys.
-  `QB` uses `Ecto.Changeset` internally so all filter and order functions
+  `QueryBuilder` uses `Ecto.Changeset` internally so all filter and order functions
   expect the keys to be atoms.
 
   ### Default params
@@ -134,7 +134,7 @@ defmodule QB do
 
   ```
   UserQueryBuilder.new(%{"search" => "José"})
-  |> QB.put_default_pagination(%{page: 1})
+  |> QueryBuilder.put_default_pagination(%{page: 1})
   ```
 
   This way, on initial load when "page" is not set, it will default to 1.
@@ -143,7 +143,7 @@ defmodule QB do
   the call to `put_default_pagination` will have no effect
   because defaults don't overwrite parameter values.
 
-  If you really want to overwrite the param, you can use `QB.put_pagination/1`
+  If you really want to overwrite the param, you can use `QueryBuilder.put_pagination/1`
 
   ### Filtering
 
@@ -162,11 +162,11 @@ defmodule QB do
   ### Sorting
 
   Sorting is different from filtering and pagination because,
-  it uses a list instead of a map. `QB.put_sort(qb, [asc: :id, desc: :updated_at])`
+  it uses a list instead of a map. `QueryBuilder.put_sort(query_builder, [asc: :id, desc: :updated_at])`
   We can't use a map here because order matters.
 
   ```
-  qb = QB.new(Repo, User, %{"sort" => [asc: :id, desc: :updated_at]})
+  query_builder = QueryBuilder.new(Repo, User, %{"sort" => [asc: :id, desc: :updated_at]})
   ```
   """
 
@@ -269,7 +269,11 @@ defmodule QB do
   end
 
   @spec put_params(t(), params(), filter_validator()) :: t()
-  def put_params(%__MODULE__{param_types: param_types} = qb, params, filter_validator \\ & &1)
+  def put_params(
+        %__MODULE__{param_types: param_types} = query_builder,
+        params,
+        filter_validator \\ & &1
+      )
       when is_params(params) and is_param_types(param_types) and
              is_filter_validator(filter_validator) do
     modified_cs =
@@ -281,7 +285,7 @@ defmodule QB do
       |> filter_validator.()
 
     %__MODULE__{
-      qb
+      query_builder
       | params: params,
         changeset: modified_cs,
         filters: Ecto.Changeset.apply_changes(modified_cs)
@@ -293,7 +297,8 @@ defmodule QB do
 
   @spec cast_filters(t()) :: t()
   defp cast_filters(
-         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} = qb
+         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} =
+           query_builder
        ) do
     filters =
       params
@@ -304,16 +309,17 @@ defmodule QB do
       end)
       |> Map.new()
 
-    %__MODULE__{qb | filters: filters}
+    %__MODULE__{query_builder | filters: filters}
   end
 
-  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
-    qb
+  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = query_builder) do
+    query_builder
   end
 
   @spec cast_pagination(t()) :: t()
   defp cast_pagination(
-         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} = qb
+         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} =
+           query_builder
        ) do
     pagination =
       params
@@ -324,11 +330,11 @@ defmodule QB do
       end)
       |> Map.new()
 
-    %__MODULE__{qb | pagination: pagination}
+    %__MODULE__{query_builder | pagination: pagination}
   end
 
-  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = qb) do
-    qb
+  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = query_builder) do
+    query_builder
   end
 
   @spec cast_sort_clauses(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
@@ -399,17 +405,19 @@ defmodule QB do
   end
 
   @spec cast_sort(t()) :: t()
-  defp cast_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = qb) do
+  defp cast_sort(
+         %__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = query_builder
+       ) do
     modified_cs = cast_sort_clauses(cs, sort)
 
     %__MODULE__{
-      qb
+      query_builder
       | changeset: modified_cs,
         sort: Ecto.Changeset.get_change(modified_cs, @sort_key) || []
     }
   end
 
-  defp cast_sort(%__MODULE__{} = qb), do: qb
+  defp cast_sort(%__MODULE__{} = query_builder), do: query_builder
 
   @spec keyword_merge_without_overwriting(keyword, keyword) :: keyword
   defp keyword_merge_without_overwriting(kw0, kw1)
@@ -471,7 +479,7 @@ defmodule QB do
   end
 
   @spec put_sort(t(), term()) :: t()
-  def put_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb, sort) do
+  def put_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder, sort) do
     original_cs = %Ecto.Changeset{cs | errors: List.keydelete(cs.errors, @sort_key, 0)}
     errors_before = length(original_cs.errors)
     modified_cs = validate_sort(original_cs, sort)
@@ -479,65 +487,68 @@ defmodule QB do
 
     if errors_before == errors_after do
       %__MODULE__{
-        qb
+        query_builder
         | sort: sort,
           changeset: Ecto.Changeset.put_change(modified_cs, @sort_key, sort)
       }
     else
-      %__MODULE__{qb | changeset: modified_cs}
+      %__MODULE__{query_builder | changeset: modified_cs}
     end
   end
 
   @spec clear_sort(t()) :: t()
-  def clear_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb) do
-    %__MODULE__{qb | sort: [], changeset: Ecto.Changeset.delete_change(cs, @sort_key)}
+  def clear_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder) do
+    %__MODULE__{query_builder | sort: [], changeset: Ecto.Changeset.delete_change(cs, @sort_key)}
   end
 
   @spec remove_sort(t(), field()) :: t()
-  def remove_sort(%__MODULE__{sort: sort} = qb, field)
+  def remove_sort(%__MODULE__{sort: sort} = query_builder, field)
       when is_field(field) do
     param_sort = List.keydelete(sort, field, 1)
-    put_sort(qb, param_sort)
+    put_sort(query_builder, param_sort)
   end
 
   @spec add_sort(t(), field(), sort_direction()) :: t()
-  def add_sort(%__MODULE__{sort: sort} = qb, field, direction)
+  def add_sort(%__MODULE__{sort: sort} = query_builder, field, direction)
       when is_field(field) and is_sort_direction(direction) do
     param_sort = sort ++ [{direction, field}]
-    put_sort(qb, param_sort)
+    put_sort(query_builder, param_sort)
   end
 
   @spec put_default_sort(t(), term()) :: t()
-  def put_default_sort(%__MODULE__{sort: []} = qb, param_sort) do
-    put_sort(qb, param_sort)
+  def put_default_sort(%__MODULE__{sort: []} = query_builder, param_sort) do
+    put_sort(query_builder, param_sort)
   end
 
-  def put_default_sort(%__MODULE__{sort: _current_sort} = qb, _param_sort) do
-    qb
+  def put_default_sort(%__MODULE__{sort: _current_sort} = query_builder, _param_sort) do
+    query_builder
   end
 
-  def merge_default_sort(%__MODULE__{sort: sort} = qb, param_sort) do
+  def merge_default_sort(%__MODULE__{sort: sort} = query_builder, param_sort) do
     modified_sort = keyword_merge_without_overwriting(sort, param_sort)
-    put_sort(qb, modified_sort)
+    put_sort(query_builder, modified_sort)
   end
 
   @spec clear_pagination(t()) :: t()
-  def clear_pagination(%__MODULE__{} = qb) do
-    put_pagination(qb, %{})
+  def clear_pagination(%__MODULE__{} = query_builder) do
+    put_pagination(query_builder, %{})
   end
 
   @spec put_pagination(t(), optional_pagination()) :: t()
-  def put_pagination(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb, empty_pagination)
+  def put_pagination(
+        %__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder,
+        empty_pagination
+      )
       when empty_pagination == %{} do
     modified_cs =
       cs
       |> Ecto.Changeset.delete_change(@page_key)
       |> Ecto.Changeset.delete_change(@page_size_key)
 
-    %__MODULE__{qb | pagination: %{}, changeset: modified_cs}
+    %__MODULE__{query_builder | pagination: %{}, changeset: modified_cs}
   end
 
-  def put_pagination(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = qb, %{
+  def put_pagination(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder, %{
         page: page,
         page_size: page_size
       })
@@ -547,50 +558,62 @@ defmodule QB do
       |> Ecto.Changeset.put_change(@page_key, page)
       |> Ecto.Changeset.put_change(@page_size_key, page_size)
 
-    %__MODULE__{qb | pagination: %{page: page, page_size: page_size}, changeset: modified_cs}
+    %__MODULE__{
+      query_builder
+      | pagination: %{page: page, page_size: page_size},
+        changeset: modified_cs
+    }
   end
 
   @spec put_default_pagination(t(), optional_pagination()) :: t()
   def put_default_pagination(
-        %__MODULE__{pagination: pagination} = qb,
+        %__MODULE__{pagination: pagination} = query_builder,
         %{page: page, page_size: page_size} = param_pagination
       )
       when is_page(page) and is_page_size(page_size) do
     modified_pagination = Map.merge(param_pagination, pagination)
-    put_pagination(qb, modified_pagination)
+    put_pagination(query_builder, modified_pagination)
   end
 
   @spec put_default_filters(t(), params()) :: t()
-  def put_default_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
+  def put_default_filters(%__MODULE__{filters: filters} = query_builder, %{} = param_filters) do
     modified_filters = Map.merge(param_filters, filters)
-    put_params(qb, modified_filters)
+    put_params(query_builder, modified_filters)
   end
 
   @spec put_filters(t(), filters()) :: t()
-  def put_filters(%__MODULE__{filters: filters} = qb, %{} = param_filters) do
+  def put_filters(%__MODULE__{filters: filters} = query_builder, %{} = param_filters) do
     modified_filters = Map.merge(filters, param_filters)
-    put_params(qb, modified_filters)
+    put_params(query_builder, modified_filters)
   end
 
   @spec put_filter_function(t(), field(), filter_fun()) :: t()
-  def put_filter_function(%__MODULE__{filter_functions: filter_functions} = qb, field, filter_fun)
+  def put_filter_function(
+        %__MODULE__{filter_functions: filter_functions} = query_builder,
+        field,
+        filter_fun
+      )
       when is_field(field) and is_filter_function(filter_fun) do
-    %__MODULE__{qb | filter_functions: Map.put(filter_functions, field, filter_fun)}
+    %__MODULE__{query_builder | filter_functions: Map.put(filter_functions, field, filter_fun)}
   end
 
   @spec remove_filter_function(t(), field()) :: t()
-  def remove_filter_function(%__MODULE__{filter_functions: filter_functions} = qb, field)
+  def remove_filter_function(
+        %__MODULE__{filter_functions: filter_functions} = query_builder,
+        field
+      )
       when is_field(field) do
-    %__MODULE__{qb | filter_functions: Map.drop(filter_functions, [field])}
+    %__MODULE__{query_builder | filter_functions: Map.drop(filter_functions, [field])}
   end
 
   @spec query(t()) :: query()
   def query(
-        %__MODULE__{base_query: base_query, filter_functions: filter_functions, sort: sort} = qb
+        %__MODULE__{base_query: base_query, filter_functions: filter_functions, sort: sort} =
+          query_builder
       ) do
     q =
       Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->
-        filter_fun.(acc_query, qb.filters[field])
+        filter_fun.(acc_query, query_builder.filters[field])
       end)
 
     if sort !== [] do
@@ -601,18 +624,19 @@ defmodule QB do
   end
 
   @spec fetch(t()) :: term()
-  def fetch(%__MODULE__{repo: repo, pagination: empty_pagination} = qb)
+  def fetch(%__MODULE__{repo: repo, pagination: empty_pagination} = query_builder)
       when empty_pagination == %{} do
-    qb
+    query_builder
     |> __MODULE__.query()
     |> repo.all()
   end
 
   def fetch(
-        %__MODULE__{repo: repo, pagination: %{page: page, page_size: page_size} = pagination} = qb
+        %__MODULE__{repo: repo, pagination: %{page: page, page_size: page_size} = pagination} =
+          query_builder
       )
       when is_page(page) and is_page_size(page_size) do
-    qb
+    query_builder
     |> __MODULE__.query()
     |> repo.paginate(pagination)
   end

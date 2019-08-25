@@ -1,4 +1,4 @@
-defmodule QB.Repo.Migrations.CreateUsers do
+defmodule QueryBuilder.Repo.Migrations.CreateUsers do
   use Ecto.Migration
 
   def change do
