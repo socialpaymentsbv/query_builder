@@ -222,21 +222,19 @@ defmodule QueryBuilder do
           changeset: optional_changeset()
         }
 
-  defguard is_module(m) when is_atom(m)
-  defguard is_repo(r) when is_module(r)
+  defguardp is_module(m) when is_atom(m)
+  defguardp is_repo(r) when is_module(r)
 
   # we cannot check more strictly since there is no way to check if a struct implements the `Ecto.Queryable` protocol.
-  defguard is_query(_q) when true
-  defguard is_field(x) when is_atom(x)
-  defguard is_params(p) when is_map(p)
-  defguard is_param_types(p) when is_map(p)
-  defguard is_filter_value(_x) when true
-  defguard is_filter_function(f) when is_function(f, 2)
-  defguard is_filter_validator(f) when is_function(f, 1)
-  defguard is_pagination(p) when is_nil(p) or (is_map(p) and map_size(p) == 2)
-  defguard is_page(n) when is_integer(n) and n > 0
-  defguard is_page_size(n) when is_integer(n) and n > 0
-  defguard is_sort_direction(x) when x in @sort_direction_atoms
+  defguardp is_query(_q) when true
+  defguardp is_field(x) when is_atom(x)
+  defguardp is_params(p) when is_map(p)
+  defguardp is_param_types(p) when is_map(p)
+  defguardp is_filter_function(f) when is_function(f, 2)
+  defguardp is_filter_validator(f) when is_function(f, 1)
+  defguardp is_page(n) when is_integer(n) and n > 0
+  defguardp is_page_size(n) when is_integer(n) and n > 0
+  defguardp is_sort_direction(x) when x in @sort_direction_atoms
 
   @enforce_keys [:repo, :base_query, :params, :param_types]
   defstruct repo: nil,
