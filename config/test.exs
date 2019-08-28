@@ -2,10 +2,10 @@ use Mix.Config
 
 config :logger, :console, level: :error
 
-config :qb, ecto_repos: [QB.Repo]
+config :query_builder, ecto_repos: [QueryBuilder.Repo]
 
-config :qb, QB.Repo,
-  username: System.get_env("QB_POSTGRES_USER"),
-  password: System.get_env("QB_POSTGRES_PASSWORD"),
-  database: System.get_env("QB_POSTGRES_DATABASE"),
+config :query_builder, QueryBuilder.Repo,
+  username: System.get_env("QUERY_BUILDER_POSTGRES_USER"),
+  password: System.get_env("QUERY_BUILDER_POSTGRES_PASSWORD"),
+  database: System.get_env("QUERY_BUILDER_POSTGRES_DATABASE"),
   pool: Ecto.Adapters.SQL.Sandbox

@@ -1,4 +1,4 @@
-defmodule QB.User do
+defmodule QueryBuilder.User do
   use Ecto.Schema
 
   schema "users" do
