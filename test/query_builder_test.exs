@@ -69,6 +69,14 @@ defmodule QueryBuilderTest do
 
   defp filter_users_by_adult(query, false), do: query
 
+  defp sort_by_birthdate(query, sort_direction) do
+    from(u in query, order_by: [{^sort_direction, u.birthdate}])
+  end
+
+  defp sort_by_inserted_at(query, sort_direction) do
+    from(u in query, order_by: [{^sort_direction, u.inserted_at}])
+  end
+
   defp verify_filter_params(changeset) do
     changeset
     |> Ecto.Changeset.validate_length(:search, min: 2)
@@ -79,6 +87,8 @@ defmodule QueryBuilderTest do
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
       |> QueryBuilder.put_filter_function(:adult, &filter_users_by_adult/2)
+      |> QueryBuilder.put_sort_function(:birthdate, &sort_by_birthdate/2)
+      |> QueryBuilder.put_sort_function(:inserted_at, &sort_by_inserted_at/2)
 
     assert Repo === query_builder.repo
     assert User === query_builder.base_query
@@ -102,7 +112,8 @@ defmodule QueryBuilderTest do
         u in User,
         where: fragment("date_part('years', age(now(), ?)) > 18", u.birthdate),
         where: ilike(u.name, ^"%clubcollect%") or ilike(u.email, ^"%clubcollect%"),
-        order_by: [desc: u.birthdate, asc: u.inserted_at]
+        order_by: [desc: u.birthdate],
+        order_by: [asc: u.inserted_at]
       )
 
     assert inspect(expected_query) == inspect(QueryBuilder.query(query_builder))
@@ -144,6 +155,8 @@ defmodule QueryBuilderTest do
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
       |> QueryBuilder.put_filter_function(:adult, &filter_users_by_adult/2)
+      |> QueryBuilder.put_sort_function(:birthdate, &sort_by_birthdate/2)
+      |> QueryBuilder.put_sort_function(:inserted_at, &sort_by_inserted_at/2)
       |> QueryBuilder.query()
       |> Repo.all()
 
@@ -157,6 +170,8 @@ defmodule QueryBuilderTest do
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
       |> QueryBuilder.put_filter_function(:adult, &filter_users_by_adult/2)
+      |> QueryBuilder.put_sort_function(:birthdate, &sort_by_birthdate/2)
+      |> QueryBuilder.put_sort_function(:inserted_at, &sort_by_inserted_at/2)
       |> QueryBuilder.clear_pagination()
       |> QueryBuilder.fetch()
 
@@ -168,6 +183,8 @@ defmodule QueryBuilderTest do
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
       |> QueryBuilder.put_filter_function(:adult, &filter_users_by_adult/2)
+      |> QueryBuilder.put_sort_function(:birthdate, &sort_by_birthdate/2)
+      |> QueryBuilder.put_sort_function(:inserted_at, &sort_by_inserted_at/2)
       |> QueryBuilder.fetch()
 
     assert match?(%Scrivener.Page{}, fetched_users)

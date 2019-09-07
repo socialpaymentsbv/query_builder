@@ -167,8 +167,6 @@ defmodule QueryBuilder do
   ```
   """
 
-  import Ecto.Query
-
   @default_pagination %{page: 1, page_size: 50}
 
   @pagination_param_types %{page: :integer, page_size: :integer}
@@ -208,6 +206,7 @@ defmodule QueryBuilder do
           :asc | :asc_nulls_first | :asc_nulls_last | :desc | :desc_nulls_first | :desc_nulls_last
   @type sort_clause :: {field(), sort_direction()}
   @type sort :: [sort_clause()]
+  @type sort_fun :: (query(), sort_direction() -> query())
   # really ugly but we cannot specify a map with string keys as we can with the atom keys.
   @type optional_changeset :: Ecto.Changeset.t() | nil
   @type t :: %__MODULE__{
@@ -235,6 +234,7 @@ defmodule QueryBuilder do
   defguardp is_page(n) when is_integer(n) and n > 0
   defguardp is_page_size(n) when is_integer(n) and n > 0
   defguardp is_sort_direction(x) when x in @sort_direction_atoms
+  defguardp is_sort_function(f) when is_function(f, 2)
 
   @enforce_keys [:repo, :base_query, :params, :param_types]
   defstruct repo: nil,
@@ -245,6 +245,7 @@ defmodule QueryBuilder do
             filter_functions: %{},
             pagination: %{},
             sort: [],
+            sort_functions: %{},
             changeset: nil
 
   @spec default_pagination() :: pagination()
@@ -491,6 +492,16 @@ defmodule QueryBuilder do
     end
   end
 
+  @spec put_sort_function(t(), field(), sort_fun()) :: t()
+  def put_sort_function(
+        %__MODULE__{sort_functions: sort_functions} = query_builder,
+        field,
+        sort_fun
+      )
+      when is_field(field) and is_sort_function(sort_fun) do
+    %__MODULE__{query_builder | sort_functions: Map.put(sort_functions, field, sort_fun)}
+  end
+
   @spec clear_sort(t()) :: t()
   def clear_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder) do
     %__MODULE__{query_builder | sort: [], changeset: Ecto.Changeset.delete_change(cs, @sort_key)}
@@ -611,11 +622,10 @@ defmodule QueryBuilder do
         filter_fun.(acc_query, query_builder.filters[field])
       end)
 
-    if sort !== [] do
-      order_by(q, [_], ^sort)
-    else
-      q
-    end
+    Enum.reduce(sort, q, fn {sort_direction, field}, acc_query ->
+      order_fun = Map.get(query_builder.sort_functions, field, fn q, _ -> q end)
+      order_fun.(acc_query, sort_direction)
+    end)
   end
 
   @spec fetch(t()) :: term()
