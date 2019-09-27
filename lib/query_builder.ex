@@ -583,20 +583,39 @@ defmodule QueryBuilder do
   end
 
   @spec query(t()) :: query()
-  def query(
-        %__MODULE__{base_query: base_query, filter_functions: filter_functions, sort: sort} =
-          query_builder
-      ) do
-    q =
-      Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->
-        filter_fun.(acc_query, query_builder.filters[field])
-      end)
+  def query(%__MODULE__{
+        base_query: base_query,
+        filter_functions: filter_functions,
+        filters: filters,
+        sort_functions: sort_functions,
+        sort: sort
+      }) do
+    base_query
+    |> reduce_filters(filters, filter_functions)
+    |> reduce_sort(sort, sort_functions)
+  end
 
-    Enum.reduce(sort, q, fn {sort_direction, field}, acc_query ->
-      order_fun = Map.get(query_builder.sort_functions, field, fn q, _ -> q end)
+  # reduce_filters and reduce_sort look _almost_ the same, but apart from variable names,
+  # there is one significant difference
+  # the inner functions have parameters swapped `{field, term}` and `{sort_direction, field}`
+  # we wanted to keep sort the same as in Ecto, but it didn't make sense to do the same swap for filters
+  defp reduce_filters(base_query, filters, filter_functions) do
+    filters
+    |> Enum.reduce(base_query, fn {field, term}, acc_query ->
+      filter_fun = Map.get(filter_functions, field, &noop/2)
+      filter_fun.(acc_query, term)
+    end)
+  end
+
+  defp reduce_sort(base_query, sort, sort_functions) do
+    sort
+    |> Enum.reduce(base_query, fn {sort_direction, field}, acc_query ->
+      order_fun = Map.get(sort_functions, field, &noop/2)
       order_fun.(acc_query, sort_direction)
     end)
   end
+
+  defp noop(query, _), do: query
 
   @spec fetch(t()) :: term()
   def fetch(%__MODULE__{repo: repo, pagination: empty_pagination} = query_builder)
