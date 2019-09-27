@@ -33,6 +33,7 @@ defmodule QueryBuilderTest do
   }
   @valid_param_types %{search: :string, adult: :boolean}
   @valid_param_keys Map.keys(@valid_param_types)
+  @default_pagination %{page: 1, page_size: 100}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -198,9 +199,9 @@ defmodule QueryBuilderTest do
   test "default pagination is correct when no user pagination is supplied" do
     query_builder =
       QueryBuilder.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
-      |> QueryBuilder.put_default_pagination(QueryBuilder.default_pagination())
+      |> QueryBuilder.put_default_pagination(@default_pagination)
 
-    dp = QueryBuilder.default_pagination()
+    dp = @default_pagination
 
     assert dp == query_builder.pagination
     assert dp.page === Ecto.Changeset.get_change(query_builder.changeset, :page)
@@ -211,7 +212,7 @@ defmodule QueryBuilderTest do
     query_builder =
       QueryBuilder.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
       |> QueryBuilder.put_pagination(%{page: 3, page_size: 20})
-      |> QueryBuilder.put_default_pagination(QueryBuilder.default_pagination())
+      |> QueryBuilder.put_default_pagination(@default_pagination)
 
     assert %{page: 3, page_size: 20} === query_builder.pagination
     assert 3 === Ecto.Changeset.get_change(query_builder.changeset, :page)

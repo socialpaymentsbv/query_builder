@@ -167,8 +167,6 @@ defmodule QueryBuilder do
   ```
   """
 
-  @default_pagination %{page: 1, page_size: 50}
-
   @pagination_param_types %{page: :integer, page_size: :integer}
   @page_parameter "page"
   @page_size_parameter "page_size"
@@ -248,9 +246,6 @@ defmodule QueryBuilder do
             sort_functions: %{},
             changeset: nil
 
-  @spec default_pagination() :: pagination()
-  def default_pagination(), do: @default_pagination
-
   @spec new(repo(), query(), params(), param_types(), filter_validator()) :: t()
   def new(repo, base_query, params, param_types, filter_validator \\ & &1)
       when is_repo(repo) and is_query(base_query) and is_params(params) and
@@ -265,13 +260,13 @@ defmodule QueryBuilder do
   end
 
   @spec put_params(t(), params(), filter_validator()) :: t()
-  def put_params(
-        %__MODULE__{param_types: param_types} = query_builder,
-        params,
-        filter_validator \\ & &1
-      )
-      when is_params(params) and is_param_types(param_types) and
-             is_filter_validator(filter_validator) do
+  defp put_params(
+         %__MODULE__{param_types: param_types} = query_builder,
+         params,
+         filter_validator \\ & &1
+       )
+       when is_params(params) and is_param_types(param_types) and
+              is_filter_validator(filter_validator) do
     modified_cs =
       Ecto.Changeset.cast(
         {%{}, param_types},
