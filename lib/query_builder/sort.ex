@@ -49,7 +49,7 @@ defmodule QueryBuilder.Sort do
   end
 
   defp all_sort_clauses_have_valid_atom_direction(sort) do
-    msg = "sorting direction is not one of: #{Enum.join(@sort_direction_atoms)}"
+    msg = "sorting direction is not one of: #{Enum.join(@sort_direction_atoms, ", ")}"
 
     sort
     |> extract_keyword_directions()
@@ -65,7 +65,7 @@ defmodule QueryBuilder.Sort do
   end
 
   defp all_sort_clauses_have_valid_string_direction(sort) do
-    msg = "sorting direction is not one of: #{Enum.join(@sort_direction_strings)}"
+    msg = "sorting direction is not one of: #{Enum.join(@sort_direction_strings, ", ")}"
 
     sort
     |> extract_param_directions()
