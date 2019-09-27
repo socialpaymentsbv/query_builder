@@ -1,4 +1,7 @@
 defmodule QueryBuilder do
+  alias QueryBuilder.Sort
+  import Sort, only: [is_sort_direction: 1, is_sort_function: 1]
+
   @moduledoc ~S"""
   `QueryBuilder` reduces boilerplate needed to translate parameters into queries.
 
@@ -167,23 +170,15 @@ defmodule QueryBuilder do
   ```
   """
 
-  @default_pagination %{page: 1, page_size: 50}
-
   @pagination_param_types %{page: :integer, page_size: :integer}
-  @page_parameter "page"
-  @page_size_parameter "page_size"
   @page_key :page
   @page_size_key :page_size
-  @pagination_parameters [@page_parameter, @page_size_parameter]
+  @pagination_keys Map.keys(@pagination_param_types)
 
-  @sort_param_types %{sort: {:array, {:map, :string}}}
   @sort_key :sort
-  @sort_parameter "sort"
-  @sort_parameters [@sort_parameter]
-  @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
-  @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
+  @sort_param_types %{sort: {:array, {:map, :string}}}
 
-  @special_parameters @pagination_parameters ++ @sort_parameters
+  @special_parameters [@sort_key | @pagination_keys]
   @special_param_types Map.merge(@pagination_param_types, @sort_param_types)
 
   @type repo :: Ecto.Repo.t()
@@ -218,6 +213,7 @@ defmodule QueryBuilder do
           filter_functions: filter_functions(),
           pagination: optional_pagination(),
           sort: sort(),
+          sort_functions: filter_functions(),
           changeset: optional_changeset()
         }
 
@@ -233,8 +229,6 @@ defmodule QueryBuilder do
   defguardp is_filter_validator(f) when is_function(f, 1)
   defguardp is_page(n) when is_integer(n) and n > 0
   defguardp is_page_size(n) when is_integer(n) and n > 0
-  defguardp is_sort_direction(x) when x in @sort_direction_atoms
-  defguardp is_sort_function(f) when is_function(f, 2)
 
   @enforce_keys [:repo, :base_query, :params, :param_types]
   defstruct repo: nil,
@@ -247,9 +241,6 @@ defmodule QueryBuilder do
             sort: [],
             sort_functions: %{},
             changeset: nil
-
-  @spec default_pagination() :: pagination()
-  def default_pagination(), do: @default_pagination
 
   @spec new(repo(), query(), params(), param_types(), filter_validator()) :: t()
   def new(repo, base_query, params, param_types, filter_validator \\ & &1)
@@ -265,13 +256,13 @@ defmodule QueryBuilder do
   end
 
   @spec put_params(t(), params(), filter_validator()) :: t()
-  def put_params(
-        %__MODULE__{param_types: param_types} = query_builder,
-        params,
-        filter_validator \\ & &1
-      )
-      when is_params(params) and is_param_types(param_types) and
-             is_filter_validator(filter_validator) do
+  defp put_params(
+         %__MODULE__{param_types: param_types} = query_builder,
+         params,
+         filter_validator \\ & &1
+       )
+       when is_params(params) and is_param_types(param_types) and
+              is_filter_validator(filter_validator) do
     modified_cs =
       Ecto.Changeset.cast(
         {%{}, param_types},
@@ -292,18 +283,10 @@ defmodule QueryBuilder do
   end
 
   @spec cast_filters(t()) :: t()
-  defp cast_filters(
-         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} =
-           query_builder
-       ) do
+  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs} = query_builder) do
     filters =
-      params
+      cs.changes
       |> Map.drop(@special_parameters)
-      |> Enum.map(fn {key, _} ->
-        k = if is_binary(key), do: String.to_atom(key), else: key
-        {k, Ecto.Changeset.get_change(cs, k)}
-      end)
-      |> Map.new()
 
     %__MODULE__{query_builder | filters: filters}
   end
@@ -313,18 +296,10 @@ defmodule QueryBuilder do
   end
 
   @spec cast_pagination(t()) :: t()
-  defp cast_pagination(
-         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} =
-           query_builder
-       ) do
+  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs} = query_builder) do
     pagination =
-      params
-      |> Map.take(@pagination_parameters)
-      |> Enum.map(fn {key, _} ->
-        k = String.to_atom(key)
-        {k, Ecto.Changeset.get_change(cs, k)}
-      end)
-      |> Map.new()
+      cs.changes
+      |> Map.take(@pagination_keys)
 
     %__MODULE__{query_builder | pagination: pagination}
   end
@@ -333,78 +308,11 @@ defmodule QueryBuilder do
     query_builder
   end
 
-  @spec cast_sort_clauses(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
-  defp cast_sort_clauses(%Ecto.Changeset{} = cs, sort)
-       when is_list(sort) do
-    # Check if there is even one sort clause that's not a map.
-    idx_not_map = Enum.find_index(sort, &(not is_map(&1)))
-
-    if not is_nil(idx_not_map) do
-      Ecto.Changeset.add_error(
-        cs,
-        @sort_key,
-        "clause #{idx_not_map} is not a map",
-        index: idx_not_map,
-        clause: :not_a_map
-      )
-    else
-      # Check if there is even one sort clause that's not a single-keyed map.
-      idx_not_one_key_map = Enum.find_index(sort, &(map_size(&1) != 1))
-
-      if not is_nil(idx_not_one_key_map) do
-        Ecto.Changeset.add_error(
-          cs,
-          @sort_key,
-          "clause #{idx_not_one_key_map} is not a one-key map",
-          index: idx_not_one_key_map,
-          clause: :not_a_one_key_map
-        )
-      else
-        # Check if there are sort direction clauses that are not in the
-        # expected list of valid values by Ecto.
-        idx_invalid_direction =
-          Enum.find_index(sort, fn clause ->
-            {_field, direction} =
-              clause
-              |> Map.to_list()
-              |> hd()
-
-            direction not in @sort_direction_strings
-          end)
-
-        if not is_nil(idx_invalid_direction) do
-          Ecto.Changeset.add_error(
-            cs,
-            @sort_key,
-            "clause #{idx_invalid_direction} sorting direction is not one of: #{
-              Enum.join(@sort_direction_strings, ", ")
-            }",
-            index: idx_invalid_direction,
-            clause: :invalid_direction
-          )
-        else
-          # If the shape of the sort clauses is correct, add the changes
-          # to the changeset programmatically (no further validation).
-          sort_clauses =
-            sort
-            |> Enum.map(&(&1 |> Map.to_list() |> hd()))
-            |> Enum.map(fn {k, v} -> {String.to_atom(v), String.to_atom(k)} end)
-
-          Ecto.Changeset.put_change(cs, @sort_key, sort_clauses)
-        end
-      end
-    end
-  end
-
-  defp cast_sort_clauses(%Ecto.Changeset{} = cs, _) do
-    Ecto.Changeset.add_error(cs, @sort_key, "must be a list of sort clauses", clauses: :not_a_list)
-  end
-
   @spec cast_sort(t()) :: t()
   defp cast_sort(
          %__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = query_builder
        ) do
-    modified_cs = cast_sort_clauses(cs, sort)
+    modified_cs = Sort.cast_sort_clauses(cs, sort)
 
     %__MODULE__{
       query_builder
@@ -415,54 +323,10 @@ defmodule QueryBuilder do
 
   defp cast_sort(%__MODULE__{} = query_builder), do: query_builder
 
-  @spec keyword_merge_without_overwriting(keyword, keyword) :: keyword
-  defp keyword_merge_without_overwriting(kw0, kw1)
-       when is_list(kw0) and is_list(kw1) do
-    Enum.reduce(kw1, kw0, fn {v, k}, kw ->
-      if List.keymember?(kw, k, 1) do
-        kw
-      else
-        List.keystore(kw, v, 1, {v, k})
-      end
-    end)
-  end
-
   @spec validate_sort(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
   defp validate_sort(%Ecto.Changeset{} = cs, sort)
        when is_list(sort) do
-    idx_invalid_direction =
-      Enum.find_index(sort, fn {direction, _field} ->
-        direction not in @sort_direction_atoms
-      end)
-
-    if not is_nil(idx_invalid_direction) do
-      Ecto.Changeset.add_error(
-        cs,
-        @sort_key,
-        "clause #{idx_invalid_direction} sorting direction is not one of: #{
-          Enum.join(@sort_direction_strings, ", ")
-        }",
-        index: idx_invalid_direction,
-        clause: :invalid_direction
-      )
-    else
-      idx_invalid_field =
-        Enum.find_index(sort, fn {_direction, field} ->
-          not (is_binary(field) or is_atom(field))
-        end)
-
-      if not is_nil(idx_invalid_field) do
-        Ecto.Changeset.add_error(
-          cs,
-          @sort_key,
-          "clause #{idx_invalid_field} sorting field is not a string or atom",
-          index: idx_invalid_field,
-          clause: :invalid_field
-        )
-      else
-        cs
-      end
-    end
+    Sort.validate_sort_clauses(cs, sort)
   end
 
   defp validate_sort(%Ecto.Changeset{} = cs, _) do
@@ -502,18 +366,6 @@ defmodule QueryBuilder do
     %__MODULE__{query_builder | sort_functions: Map.put(sort_functions, field, sort_fun)}
   end
 
-  @spec clear_sort(t()) :: t()
-  def clear_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder) do
-    %__MODULE__{query_builder | sort: [], changeset: Ecto.Changeset.delete_change(cs, @sort_key)}
-  end
-
-  @spec remove_sort(t(), field()) :: t()
-  def remove_sort(%__MODULE__{sort: sort} = query_builder, field)
-      when is_field(field) do
-    param_sort = List.keydelete(sort, field, 1)
-    put_sort(query_builder, param_sort)
-  end
-
   @spec add_sort(t(), field(), sort_direction()) :: t()
   def add_sort(%__MODULE__{sort: sort} = query_builder, field, direction)
       when is_field(field) and is_sort_direction(direction) do
@@ -535,9 +387,16 @@ defmodule QueryBuilder do
     put_sort(query_builder, modified_sort)
   end
 
-  @spec clear_pagination(t()) :: t()
-  def clear_pagination(%__MODULE__{} = query_builder) do
-    put_pagination(query_builder, %{})
+  @spec keyword_merge_without_overwriting(keyword, keyword) :: keyword
+  defp keyword_merge_without_overwriting(kw0, kw1)
+       when is_list(kw0) and is_list(kw1) do
+    Enum.reduce(kw1, kw0, fn {v, k}, kw ->
+      if List.keymember?(kw, k, 1) do
+        kw
+      else
+        List.keystore(kw, v, 1, {v, k})
+      end
+    end)
   end
 
   @spec put_pagination(t(), optional_pagination()) :: t()
@@ -603,30 +462,40 @@ defmodule QueryBuilder do
     %__MODULE__{query_builder | filter_functions: Map.put(filter_functions, field, filter_fun)}
   end
 
-  @spec remove_filter_function(t(), field()) :: t()
-  def remove_filter_function(
-        %__MODULE__{filter_functions: filter_functions} = query_builder,
-        field
-      )
-      when is_field(field) do
-    %__MODULE__{query_builder | filter_functions: Map.drop(filter_functions, [field])}
+  @spec query(t()) :: query()
+  def query(%__MODULE__{
+        base_query: base_query,
+        filter_functions: filter_functions,
+        filters: filters,
+        sort_functions: sort_functions,
+        sort: sort
+      }) do
+    base_query
+    |> reduce_filters(filters, filter_functions)
+    |> reduce_sort(sort, sort_functions)
   end
 
-  @spec query(t()) :: query()
-  def query(
-        %__MODULE__{base_query: base_query, filter_functions: filter_functions, sort: sort} =
-          query_builder
-      ) do
-    q =
-      Enum.reduce(filter_functions, base_query, fn {field, filter_fun}, acc_query ->
-        filter_fun.(acc_query, query_builder.filters[field])
-      end)
+  # reduce_filters and reduce_sort look _almost_ the same, but apart from variable names,
+  # there is one significant difference
+  # the inner functions have parameters swapped `{field, term}` and `{sort_direction, field}`
+  # we wanted to keep sort the same as in Ecto, but it didn't make sense to do the same swap for filters
+  defp reduce_filters(base_query, filters, filter_functions) do
+    filters
+    |> Enum.reduce(base_query, fn {field, term}, acc_query ->
+      filter_fun = Map.get(filter_functions, field, &noop/2)
+      filter_fun.(acc_query, term)
+    end)
+  end
 
-    Enum.reduce(sort, q, fn {sort_direction, field}, acc_query ->
-      order_fun = Map.get(query_builder.sort_functions, field, fn q, _ -> q end)
+  defp reduce_sort(base_query, sort, sort_functions) do
+    sort
+    |> Enum.reduce(base_query, fn {sort_direction, field}, acc_query ->
+      order_fun = Map.get(sort_functions, field, &noop/2)
       order_fun.(acc_query, sort_direction)
     end)
   end
+
+  defp noop(query, _), do: query
 
   @spec fetch(t()) :: term()
   def fetch(%__MODULE__{repo: repo, pagination: empty_pagination} = query_builder)

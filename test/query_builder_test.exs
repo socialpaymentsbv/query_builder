@@ -33,6 +33,7 @@ defmodule QueryBuilderTest do
   }
   @valid_param_types %{search: :string, adult: :boolean}
   @valid_param_keys Map.keys(@valid_param_types)
+  @default_pagination %{page: 1, page_size: 100}
 
   setup do
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
@@ -140,16 +141,6 @@ defmodule QueryBuilderTest do
     assert inspect(expected_query) == inspect(QueryBuilder.query(query_builder))
   end
 
-  test "removing filter function works" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
-      |> QueryBuilder.put_filter_function(:adult, &filter_users_by_adult/2)
-      |> QueryBuilder.remove_filter_function(:search)
-
-    assert match?(%{adult: fun_a} when is_function(fun_a, 2), query_builder.filter_functions)
-  end
-
   test "fetching correct records from database through an Ecto Repo", %{adult_user: expected_user} do
     fetched_users =
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
@@ -167,12 +158,16 @@ defmodule QueryBuilderTest do
     adult_user: expected_user
   } do
     fetched_users =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
+      QueryBuilder.new(
+        Repo,
+        User,
+        Map.drop(@valid_params, ["page", "page_size"]),
+        @valid_param_types
+      )
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
       |> QueryBuilder.put_filter_function(:adult, &filter_users_by_adult/2)
       |> QueryBuilder.put_sort_function(:birthdate, &sort_by_birthdate/2)
       |> QueryBuilder.put_sort_function(:inserted_at, &sort_by_inserted_at/2)
-      |> QueryBuilder.clear_pagination()
       |> QueryBuilder.fetch()
 
     assert fetched_users == [expected_user]
@@ -191,16 +186,6 @@ defmodule QueryBuilderTest do
     assert fetched_users.entries == [expected_user]
   end
 
-  test "clearing pagination works" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.clear_pagination()
-
-    assert %{} === query_builder.pagination
-    assert is_nil(Ecto.Changeset.get_change(query_builder.changeset, :page))
-    assert is_nil(Ecto.Changeset.get_change(query_builder.changeset, :page_size))
-  end
-
   test "setting pagination works" do
     query_builder =
       QueryBuilder.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
@@ -214,9 +199,9 @@ defmodule QueryBuilderTest do
   test "default pagination is correct when no user pagination is supplied" do
     query_builder =
       QueryBuilder.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
-      |> QueryBuilder.put_default_pagination(QueryBuilder.default_pagination())
+      |> QueryBuilder.put_default_pagination(@default_pagination)
 
-    dp = QueryBuilder.default_pagination()
+    dp = @default_pagination
 
     assert dp == query_builder.pagination
     assert dp.page === Ecto.Changeset.get_change(query_builder.changeset, :page)
@@ -227,7 +212,7 @@ defmodule QueryBuilderTest do
     query_builder =
       QueryBuilder.new(Repo, User, @valid_params_without_pagination, @valid_param_types)
       |> QueryBuilder.put_pagination(%{page: 3, page_size: 20})
-      |> QueryBuilder.put_default_pagination(QueryBuilder.default_pagination())
+      |> QueryBuilder.put_default_pagination(@default_pagination)
 
     assert %{page: 3, page_size: 20} === query_builder.pagination
     assert 3 === Ecto.Changeset.get_change(query_builder.changeset, :page)
@@ -380,35 +365,6 @@ defmodule QueryBuilderTest do
 
     assert [asc: :id] === query_builder.sort
     assert [asc: :id] === Ecto.Changeset.get_change(query_builder.changeset, :sort)
-  end
-
-  test "clearing sort works" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.clear_sort()
-
-    assert [] === query_builder.sort
-    assert is_nil(Ecto.Changeset.get_change(query_builder.changeset, :sort))
-  end
-
-  test "removing valid sort field works" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.remove_sort(:inserted_at)
-
-    assert [desc: :birthdate] === query_builder.sort
-    assert [desc: :birthdate] === Ecto.Changeset.get_change(query_builder.changeset, :sort)
-  end
-
-  test "removing non-existent sort field is ignored" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.remove_sort(:id)
-
-    assert [desc: :birthdate, asc: :inserted_at] === query_builder.sort
-
-    assert [desc: :birthdate, asc: :inserted_at] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "adding sort field works" do
