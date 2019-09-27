@@ -1,4 +1,7 @@
 defmodule QueryBuilder do
+  alias QueryBuilder.Sort
+  import Sort, only: [is_sort_direction: 1, is_sort_function: 1]
+
   @moduledoc ~S"""
   `QueryBuilder` reduces boilerplate needed to translate parameters into queries.
 
@@ -238,9 +241,6 @@ defmodule QueryBuilder do
             sort: [],
             sort_functions: %{},
             changeset: nil
-
-  alias QueryBuilder.Sort
-  import Sort, only: [is_sort_direction: 1, is_sort_function: 1]
 
   @spec new(repo(), query(), params(), param_types(), filter_validator()) :: t()
   def new(repo, base_query, params, param_types, filter_validator \\ & &1)
