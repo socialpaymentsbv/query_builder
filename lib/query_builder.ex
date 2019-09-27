@@ -325,18 +325,6 @@ defmodule QueryBuilder do
 
   defp cast_sort(%__MODULE__{} = query_builder), do: query_builder
 
-  @spec keyword_merge_without_overwriting(keyword, keyword) :: keyword
-  defp keyword_merge_without_overwriting(kw0, kw1)
-       when is_list(kw0) and is_list(kw1) do
-    Enum.reduce(kw1, kw0, fn {v, k}, kw ->
-      if List.keymember?(kw, k, 1) do
-        kw
-      else
-        List.keystore(kw, v, 1, {v, k})
-      end
-    end)
-  end
-
   @spec validate_sort(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
   defp validate_sort(%Ecto.Changeset{} = cs, sort)
        when is_list(sort) do
@@ -431,6 +419,18 @@ defmodule QueryBuilder do
   def merge_default_sort(%__MODULE__{sort: sort} = query_builder, param_sort) do
     modified_sort = keyword_merge_without_overwriting(sort, param_sort)
     put_sort(query_builder, modified_sort)
+  end
+
+  @spec keyword_merge_without_overwriting(keyword, keyword) :: keyword
+  defp keyword_merge_without_overwriting(kw0, kw1)
+       when is_list(kw0) and is_list(kw1) do
+    Enum.reduce(kw1, kw0, fn {v, k}, kw ->
+      if List.keymember?(kw, k, 1) do
+        kw
+      else
+        List.keystore(kw, v, 1, {v, k})
+      end
+    end)
   end
 
   @spec put_pagination(t(), optional_pagination()) :: t()
