@@ -367,26 +367,6 @@ defmodule QueryBuilderTest do
     assert [asc: :id] === Ecto.Changeset.get_change(query_builder.changeset, :sort)
   end
 
-  test "removing valid sort field works" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.remove_sort(:inserted_at)
-
-    assert [desc: :birthdate] === query_builder.sort
-    assert [desc: :birthdate] === Ecto.Changeset.get_change(query_builder.changeset, :sort)
-  end
-
-  test "removing non-existent sort field is ignored" do
-    query_builder =
-      QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
-      |> QueryBuilder.remove_sort(:id)
-
-    assert [desc: :birthdate, asc: :inserted_at] === query_builder.sort
-
-    assert [desc: :birthdate, asc: :inserted_at] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
-  end
-
   test "adding sort field works" do
     query_builder =
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)

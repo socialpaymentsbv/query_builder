@@ -216,6 +216,7 @@ defmodule QueryBuilder do
           filter_functions: filter_functions(),
           pagination: optional_pagination(),
           sort: sort(),
+          sort_functions: filter_functions(),
           changeset: optional_changeset()
         }
 
@@ -495,13 +496,6 @@ defmodule QueryBuilder do
       )
       when is_field(field) and is_sort_function(sort_fun) do
     %__MODULE__{query_builder | sort_functions: Map.put(sort_functions, field, sort_fun)}
-  end
-
-  @spec remove_sort(t(), field()) :: t()
-  def remove_sort(%__MODULE__{sort: sort} = query_builder, field)
-      when is_field(field) do
-    param_sort = List.keydelete(sort, field, 1)
-    put_sort(query_builder, param_sort)
   end
 
   @spec add_sort(t(), field(), sort_direction()) :: t()
