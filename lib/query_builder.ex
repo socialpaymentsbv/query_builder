@@ -168,20 +168,17 @@ defmodule QueryBuilder do
   """
 
   @pagination_param_types %{page: :integer, page_size: :integer}
-  @page_parameter "page"
-  @page_size_parameter "page_size"
   @page_key :page
   @page_size_key :page_size
-  @pagination_parameters [@page_parameter, @page_size_parameter]
+  @pagination_keys Map.keys(@pagination_param_types)
 
-  @sort_param_types %{sort: {:array, {:map, :string}}}
   @sort_key :sort
-  @sort_parameter "sort"
-  @sort_parameters [@sort_parameter]
-  @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
+  @sort_param_types %{sort: {:array, {:map, :string}}}
+  # TODO move to SortCaster
   @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
+  @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
 
-  @special_parameters @pagination_parameters ++ @sort_parameters
+  @special_parameters [@sort_key | @pagination_keys]
   @special_param_types Map.merge(@pagination_param_types, @sort_param_types)
 
   @type repo :: Ecto.Repo.t()
@@ -288,18 +285,10 @@ defmodule QueryBuilder do
   end
 
   @spec cast_filters(t()) :: t()
-  defp cast_filters(
-         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} =
-           query_builder
-       ) do
+  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs} = query_builder) do
     filters =
-      params
+      cs.changes
       |> Map.drop(@special_parameters)
-      |> Enum.map(fn {key, _} ->
-        k = if is_binary(key), do: String.to_atom(key), else: key
-        {k, Ecto.Changeset.get_change(cs, k)}
-      end)
-      |> Map.new()
 
     %__MODULE__{query_builder | filters: filters}
   end
@@ -309,18 +298,10 @@ defmodule QueryBuilder do
   end
 
   @spec cast_pagination(t()) :: t()
-  defp cast_pagination(
-         %__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs, params: params} =
-           query_builder
-       ) do
+  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs} = query_builder) do
     pagination =
-      params
-      |> Map.take(@pagination_parameters)
-      |> Enum.map(fn {key, _} ->
-        k = String.to_atom(key)
-        {k, Ecto.Changeset.get_change(cs, k)}
-      end)
-      |> Map.new()
+      cs.changes
+      |> Map.take(@pagination_keys)
 
     %__MODULE__{query_builder | pagination: pagination}
   end
@@ -329,78 +310,11 @@ defmodule QueryBuilder do
     query_builder
   end
 
-  @spec cast_sort_clauses(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
-  defp cast_sort_clauses(%Ecto.Changeset{} = cs, sort)
-       when is_list(sort) do
-    # Check if there is even one sort clause that's not a map.
-    idx_not_map = Enum.find_index(sort, &(not is_map(&1)))
-
-    if not is_nil(idx_not_map) do
-      Ecto.Changeset.add_error(
-        cs,
-        @sort_key,
-        "clause #{idx_not_map} is not a map",
-        index: idx_not_map,
-        clause: :not_a_map
-      )
-    else
-      # Check if there is even one sort clause that's not a single-keyed map.
-      idx_not_one_key_map = Enum.find_index(sort, &(map_size(&1) != 1))
-
-      if not is_nil(idx_not_one_key_map) do
-        Ecto.Changeset.add_error(
-          cs,
-          @sort_key,
-          "clause #{idx_not_one_key_map} is not a one-key map",
-          index: idx_not_one_key_map,
-          clause: :not_a_one_key_map
-        )
-      else
-        # Check if there are sort direction clauses that are not in the
-        # expected list of valid values by Ecto.
-        idx_invalid_direction =
-          Enum.find_index(sort, fn clause ->
-            {_field, direction} =
-              clause
-              |> Map.to_list()
-              |> hd()
-
-            direction not in @sort_direction_strings
-          end)
-
-        if not is_nil(idx_invalid_direction) do
-          Ecto.Changeset.add_error(
-            cs,
-            @sort_key,
-            "clause #{idx_invalid_direction} sorting direction is not one of: #{
-              Enum.join(@sort_direction_strings, ", ")
-            }",
-            index: idx_invalid_direction,
-            clause: :invalid_direction
-          )
-        else
-          # If the shape of the sort clauses is correct, add the changes
-          # to the changeset programmatically (no further validation).
-          sort_clauses =
-            sort
-            |> Enum.map(&(&1 |> Map.to_list() |> hd()))
-            |> Enum.map(fn {k, v} -> {String.to_atom(v), String.to_atom(k)} end)
-
-          Ecto.Changeset.put_change(cs, @sort_key, sort_clauses)
-        end
-      end
-    end
-  end
-
-  defp cast_sort_clauses(%Ecto.Changeset{} = cs, _) do
-    Ecto.Changeset.add_error(cs, @sort_key, "must be a list of sort clauses", clauses: :not_a_list)
-  end
-
   @spec cast_sort(t()) :: t()
   defp cast_sort(
          %__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = query_builder
        ) do
-    modified_cs = cast_sort_clauses(cs, sort)
+    modified_cs = QueryBuilder.SortCaster.cast_sort_clauses(cs, sort)
 
     %__MODULE__{
       query_builder
