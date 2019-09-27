@@ -174,9 +174,6 @@ defmodule QueryBuilder do
 
   @sort_key :sort
   @sort_param_types %{sort: {:array, {:map, :string}}}
-  # TODO move to SortCaster
-  @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
-  @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
 
   @special_parameters [@sort_key | @pagination_keys]
   @special_param_types Map.merge(@pagination_param_types, @sort_param_types)
@@ -229,8 +226,6 @@ defmodule QueryBuilder do
   defguardp is_filter_validator(f) when is_function(f, 1)
   defguardp is_page(n) when is_integer(n) and n > 0
   defguardp is_page_size(n) when is_integer(n) and n > 0
-  defguardp is_sort_direction(x) when x in @sort_direction_atoms
-  defguardp is_sort_function(f) when is_function(f, 2)
 
   @enforce_keys [:repo, :base_query, :params, :param_types]
   defstruct repo: nil,
@@ -243,6 +238,9 @@ defmodule QueryBuilder do
             sort: [],
             sort_functions: %{},
             changeset: nil
+
+  alias QueryBuilder.Sort
+  import Sort, only: [is_sort_direction: 1, is_sort_function: 1]
 
   @spec new(repo(), query(), params(), param_types(), filter_validator()) :: t()
   def new(repo, base_query, params, param_types, filter_validator \\ & &1)
@@ -314,7 +312,7 @@ defmodule QueryBuilder do
   defp cast_sort(
          %__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = query_builder
        ) do
-    modified_cs = QueryBuilder.Sort.cast_sort_clauses(cs, sort)
+    modified_cs = Sort.cast_sort_clauses(cs, sort)
 
     %__MODULE__{
       query_builder
@@ -328,7 +326,7 @@ defmodule QueryBuilder do
   @spec validate_sort(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
   defp validate_sort(%Ecto.Changeset{} = cs, sort)
        when is_list(sort) do
-    QueryBuilder.Sort.validate_sort_clauses(cs, sort)
+    Sort.validate_sort_clauses(cs, sort)
   end
 
   defp validate_sort(%Ecto.Changeset{} = cs, _) do

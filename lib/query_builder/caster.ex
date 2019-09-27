@@ -5,6 +5,9 @@ defmodule QueryBuilder.Sort do
   @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
   @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
 
+  defguard is_sort_direction(x) when x in @sort_direction_atoms
+  defguard is_sort_function(f) when is_function(f, 2)
+
   @spec validate_sort_clauses(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
   def validate_sort_clauses(%Ecto.Changeset{} = cs, sort) do
     with :ok <- all_sort_clauses_have_valid_atom_direction(sort),
