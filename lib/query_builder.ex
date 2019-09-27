@@ -502,11 +502,6 @@ defmodule QueryBuilder do
     %__MODULE__{query_builder | sort_functions: Map.put(sort_functions, field, sort_fun)}
   end
 
-  @spec clear_sort(t()) :: t()
-  def clear_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder) do
-    %__MODULE__{query_builder | sort: [], changeset: Ecto.Changeset.delete_change(cs, @sort_key)}
-  end
-
   @spec remove_sort(t(), field()) :: t()
   def remove_sort(%__MODULE__{sort: sort} = query_builder, field)
       when is_field(field) do
@@ -533,11 +528,6 @@ defmodule QueryBuilder do
   def merge_default_sort(%__MODULE__{sort: sort} = query_builder, param_sort) do
     modified_sort = keyword_merge_without_overwriting(sort, param_sort)
     put_sort(query_builder, modified_sort)
-  end
-
-  @spec clear_pagination(t()) :: t()
-  def clear_pagination(%__MODULE__{} = query_builder) do
-    put_pagination(query_builder, %{})
   end
 
   @spec put_pagination(t(), optional_pagination()) :: t()
@@ -601,15 +591,6 @@ defmodule QueryBuilder do
       )
       when is_field(field) and is_filter_function(filter_fun) do
     %__MODULE__{query_builder | filter_functions: Map.put(filter_functions, field, filter_fun)}
-  end
-
-  @spec remove_filter_function(t(), field()) :: t()
-  def remove_filter_function(
-        %__MODULE__{filter_functions: filter_functions} = query_builder,
-        field
-      )
-      when is_field(field) do
-    %__MODULE__{query_builder | filter_functions: Map.drop(filter_functions, [field])}
   end
 
   @spec query(t()) :: query()
