@@ -175,8 +175,8 @@ defmodule QueryBuilder do
   @sort_key :sort
   @sort_param_types %{sort: {:array, {:map, :string}}}
   # TODO move to SortCaster
-  @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
   @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
+  @sort_direction_strings ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)
 
   @special_parameters [@sort_key | @pagination_keys]
   @special_param_types Map.merge(@pagination_param_types, @sort_param_types)
@@ -314,7 +314,7 @@ defmodule QueryBuilder do
   defp cast_sort(
          %__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = query_builder
        ) do
-    modified_cs = QueryBuilder.SortCaster.cast_sort_clauses(cs, sort)
+    modified_cs = QueryBuilder.Sort.cast_sort_clauses(cs, sort)
 
     %__MODULE__{
       query_builder
@@ -328,39 +328,7 @@ defmodule QueryBuilder do
   @spec validate_sort(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
   defp validate_sort(%Ecto.Changeset{} = cs, sort)
        when is_list(sort) do
-    idx_invalid_direction =
-      Enum.find_index(sort, fn {direction, _field} ->
-        direction not in @sort_direction_atoms
-      end)
-
-    if not is_nil(idx_invalid_direction) do
-      Ecto.Changeset.add_error(
-        cs,
-        @sort_key,
-        "clause #{idx_invalid_direction} sorting direction is not one of: #{
-          Enum.join(@sort_direction_strings, ", ")
-        }",
-        index: idx_invalid_direction,
-        clause: :invalid_direction
-      )
-    else
-      idx_invalid_field =
-        Enum.find_index(sort, fn {_direction, field} ->
-          not (is_binary(field) or is_atom(field))
-        end)
-
-      if not is_nil(idx_invalid_field) do
-        Ecto.Changeset.add_error(
-          cs,
-          @sort_key,
-          "clause #{idx_invalid_field} sorting field is not a string or atom",
-          index: idx_invalid_field,
-          clause: :invalid_field
-        )
-      else
-        cs
-      end
-    end
+    QueryBuilder.Sort.validate_sort_clauses(cs, sort)
   end
 
   defp validate_sort(%Ecto.Changeset{} = cs, _) do
