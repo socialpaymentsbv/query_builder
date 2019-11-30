@@ -1,5 +1,6 @@
 defmodule QueryBuilder do
   alias QueryBuilder.Sort
+  import Ecto.Query, only: [from: 2]
   import Sort, only: [is_sort_direction: 1, is_sort_function: 1]
 
   @moduledoc ~S"""
@@ -490,7 +491,13 @@ defmodule QueryBuilder do
   defp reduce_sort(base_query, sort, sort_functions) do
     sort
     |> Enum.reduce(base_query, fn {sort_direction, field}, acc_query ->
-      order_fun = Map.get(sort_functions, field, &noop/2)
+      order_fun =
+        Map.get(sort_functions, field, fn q, dir ->
+          # A default sorting function which assumes ordering only by a singular field.
+          sort_clause = [{dir, field}]
+          from(x in q, order_by: ^sort_clause)
+        end)
+
       order_fun.(acc_query, sort_direction)
     end)
   end
