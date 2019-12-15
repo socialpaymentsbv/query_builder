@@ -41,7 +41,11 @@ defmodule QueryBuilderTest do
     {:ok, birthdate1, 0} = DateTime.from_iso8601("1990-01-01T23:50:07Z")
     {:ok, birthdate2, 0} = DateTime.from_iso8601("2019-01-01T23:50:07Z")
 
-    adult_user = %User{email: "adult@clubcollect.com", name: "adult", birthdate: birthdate1}
+    adult_user = %User{
+      email: "adult@clubcollect.com",
+      name: "adult",
+      birthdate: birthdate1
+    }
 
     juvenile_user = %User{
       email: "juvenile@clubcollect.com",
@@ -71,12 +75,8 @@ defmodule QueryBuilderTest do
 
   defp filter_users_by_adult(query, false), do: query
 
-  defp sort_by_birthdate(query, sort_direction) do
-    from(u in query, order_by: [{^sort_direction, u.birthdate}])
-  end
-
-  defp sort_by_inserted_at(query, sort_direction) do
-    from(u in query, order_by: [{^sort_direction, u.inserted_at}])
+  defp sort_by_email_desc(query, _sort_direction) do
+    from(u in query, order_by: [{:desc, u.email}])
   end
 
   defp verify_filter_params(changeset) do
@@ -97,7 +97,8 @@ defmodule QueryBuilderTest do
     assert @valid_param_types === Map.take(query_builder.param_types, @valid_param_keys)
 
     assert match?(
-             %{search: fun_c, adult: fun_a} when is_function(fun_c, 2) and is_function(fun_a, 2),
+             %{search: fun_c, adult: fun_a}
+             when is_function(fun_c, 2) and is_function(fun_a, 2),
              query_builder.filter_functions
            )
 
@@ -128,7 +129,12 @@ defmodule QueryBuilderTest do
 
   test "create with valid params with unexpected fields" do
     query_builder =
-      QueryBuilder.new(Repo, User, @valid_params_with_unexpected_fields, @valid_param_types)
+      QueryBuilder.new(
+        Repo,
+        User,
+        @valid_params_with_unexpected_fields,
+        @valid_param_types
+      )
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
 
     expected_query =
@@ -140,7 +146,9 @@ defmodule QueryBuilderTest do
     assert inspect(expected_query) == inspect(QueryBuilder.query(query_builder))
   end
 
-  test "fetching correct records from database through an Ecto Repo", %{adult_user: expected_user} do
+  test "fetching correct records from database through an Ecto Repo", %{
+    adult_user: expected_user
+  } do
     fetched_users =
       QueryBuilder.new(Repo, User, @valid_params, @valid_param_types)
       |> QueryBuilder.put_filter_function(:search, &filter_users_by_search/2)
@@ -265,7 +273,12 @@ defmodule QueryBuilderTest do
 
   test "passing sort clauses that are not a list is reported" do
     err =
-      QueryBuilder.new(Repo, User, %{"search" => "abc", "sort" => {false, 1}}, @valid_param_types)
+      QueryBuilder.new(
+        Repo,
+        User,
+        %{"search" => "abc", "sort" => {false, 1}},
+        @valid_param_types
+      )
       |> QueryBuilder.get_error(:sort)
 
     assert match?({_msg, [clauses: :not_a_list]}, err)
@@ -292,7 +305,10 @@ defmodule QueryBuilderTest do
       QueryBuilder.new(
         Repo,
         User,
-        %{"search" => "abc", "sort" => [%{"birthdate" => "desc", "inserted_at" => "asc"}]},
+        %{
+          "search" => "abc",
+          "sort" => [%{"birthdate" => "desc", "inserted_at" => "asc"}]
+        },
         @valid_param_types
       )
       |> QueryBuilder.get_error(:sort)
@@ -305,7 +321,10 @@ defmodule QueryBuilderTest do
       QueryBuilder.new(
         Repo,
         User,
-        %{"search" => "abc", "sort" => [%{"birthdate" => "desc"}, %{"inserted_at" => "asc!"}]},
+        %{
+          "search" => "abc",
+          "sort" => [%{"birthdate" => "desc"}, %{"inserted_at" => "asc!"}]
+        },
         @valid_param_types
       )
       |> QueryBuilder.get_error(:sort)
@@ -314,7 +333,9 @@ defmodule QueryBuilderTest do
   end
 
   test "passing valid params without sort works" do
-    query_builder = QueryBuilder.new(Repo, User, @valid_params_without_sort, @valid_param_types)
+    query_builder =
+      QueryBuilder.new(Repo, User, @valid_params_without_sort, @valid_param_types)
+
     assert query_builder.sort === []
   end
 
@@ -369,6 +390,18 @@ defmodule QueryBuilderTest do
 
     assert [desc: :birthdate, asc: :inserted_at, desc: :id] ===
              Changeset.get_change(query_builder.changeset, :sort)
+  end
+
+  test "custom sorting function works" do
+    query_builder =
+      QueryBuilder.new(Repo, User, %{}, @valid_param_types)
+      |> QueryBuilder.add_sort(:email, :asc)
+      |> QueryBuilder.put_sort_function(:email, &sort_by_email_desc/2)
+
+    results = QueryBuilder.fetch(query_builder)
+
+    assert ["juvenile@clubcollect.com", "adult@clubcollect.com"] ==
+             Enum.map(results, & &1.email)
   end
 
   test "default sort does not override parameter sort if they pertain to the same fields" do
@@ -427,6 +460,9 @@ defmodule QueryBuilderTest do
       )
       |> QueryBuilder.get_error(:search)
 
-    assert match?({_msg, [count: 2, validation: :length, kind: :min, type: :string]}, err)
+    assert match?(
+             {_msg, [count: 2, validation: :length, kind: :min, type: :string]},
+             err
+           )
   end
 end
