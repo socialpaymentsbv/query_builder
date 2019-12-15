@@ -2,6 +2,7 @@ defmodule QueryBuilderTest do
   use ExUnit.Case
   doctest QueryBuilder
 
+  alias Ecto.Changeset
   alias QueryBuilder.{Repo, User}
 
   import Ecto.Query
@@ -80,7 +81,7 @@ defmodule QueryBuilderTest do
 
   defp verify_filter_params(changeset) do
     changeset
-    |> Ecto.Changeset.validate_length(:search, min: 2)
+    |> Changeset.validate_length(:search, min: 2)
   end
 
   test "create with valid params and valid types, including pagination and sorting" do
@@ -91,7 +92,7 @@ defmodule QueryBuilderTest do
 
     assert Repo === query_builder.repo
     assert User === query_builder.base_query
-    assert match?(%Ecto.Changeset{valid?: true, errors: []}, query_builder.changeset)
+    assert match?(%Changeset{valid?: true, errors: []}, query_builder.changeset)
     assert @valid_params === query_builder.params
     assert @valid_param_types === Map.take(query_builder.param_types, @valid_param_keys)
 
@@ -101,8 +102,8 @@ defmodule QueryBuilderTest do
            )
 
     assert %{search: "clubcollect", adult: true} === query_builder.filters
-    assert "clubcollect" === Ecto.Changeset.get_change(query_builder.changeset, :search)
-    assert true === Ecto.Changeset.get_change(query_builder.changeset, :adult)
+    assert "clubcollect" === Changeset.get_change(query_builder.changeset, :search)
+    assert true === Changeset.get_change(query_builder.changeset, :adult)
     assert %{page: 1, page_size: 1} === query_builder.pagination
     assert [desc: :birthdate, asc: :inserted_at] === query_builder.sort
 
@@ -184,8 +185,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_pagination(%{page: 3, page_size: 20})
 
     assert %{page: 3, page_size: 20} === query_builder.pagination
-    assert 3 === Ecto.Changeset.get_change(query_builder.changeset, :page)
-    assert 20 === Ecto.Changeset.get_change(query_builder.changeset, :page_size)
+    assert 3 === Changeset.get_change(query_builder.changeset, :page)
+    assert 20 === Changeset.get_change(query_builder.changeset, :page_size)
   end
 
   test "default pagination is correct when no user pagination is supplied" do
@@ -196,8 +197,8 @@ defmodule QueryBuilderTest do
     dp = @default_pagination
 
     assert dp == query_builder.pagination
-    assert dp.page === Ecto.Changeset.get_change(query_builder.changeset, :page)
-    assert dp.page_size === Ecto.Changeset.get_change(query_builder.changeset, :page_size)
+    assert dp.page === Changeset.get_change(query_builder.changeset, :page)
+    assert dp.page_size === Changeset.get_change(query_builder.changeset, :page_size)
   end
 
   test "default pagination is not applied when a user pagination is supplied" do
@@ -207,8 +208,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_default_pagination(@default_pagination)
 
     assert %{page: 3, page_size: 20} === query_builder.pagination
-    assert 3 === Ecto.Changeset.get_change(query_builder.changeset, :page)
-    assert 20 === Ecto.Changeset.get_change(query_builder.changeset, :page_size)
+    assert 3 === Changeset.get_change(query_builder.changeset, :page)
+    assert 20 === Changeset.get_change(query_builder.changeset, :page_size)
   end
 
   test "explicit changing of pagination overwrites initial parameters" do
@@ -217,8 +218,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_pagination(%{page: 3, page_size: 20})
 
     assert %{page: 3, page_size: 20} === query_builder.pagination
-    assert 3 === Ecto.Changeset.get_change(query_builder.changeset, :page)
-    assert 20 === Ecto.Changeset.get_change(query_builder.changeset, :page_size)
+    assert 3 === Changeset.get_change(query_builder.changeset, :page)
+    assert 20 === Changeset.get_change(query_builder.changeset, :page_size)
   end
 
   test "default filters are correct when no user filters are supplied" do
@@ -227,8 +228,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_default_filters(%{search: "huh?", adult: false})
 
     assert %{search: "huh?", adult: false} === query_builder.filters
-    assert "huh?" === Ecto.Changeset.get_change(query_builder.changeset, :search)
-    assert false === Ecto.Changeset.get_change(query_builder.changeset, :adult)
+    assert "huh?" === Changeset.get_change(query_builder.changeset, :search)
+    assert false === Changeset.get_change(query_builder.changeset, :adult)
   end
 
   test "default filters are not applied when user filters are supplied" do
@@ -237,8 +238,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_default_filters(%{search: "huh?", adult: false})
 
     assert %{search: "clubcollect", adult: true} === query_builder.filters
-    assert "clubcollect" === Ecto.Changeset.get_change(query_builder.changeset, :search)
-    assert true === Ecto.Changeset.get_change(query_builder.changeset, :adult)
+    assert "clubcollect" === Changeset.get_change(query_builder.changeset, :search)
+    assert true === Changeset.get_change(query_builder.changeset, :adult)
   end
 
   test "explicitly set filters override defaults" do
@@ -248,8 +249,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_filters(%{search: "custom", adult: true})
 
     assert %{search: "custom", adult: true} === query_builder.filters
-    assert "custom" === Ecto.Changeset.get_change(query_builder.changeset, :search)
-    assert true === Ecto.Changeset.get_change(query_builder.changeset, :adult)
+    assert "custom" === Changeset.get_change(query_builder.changeset, :search)
+    assert true === Changeset.get_change(query_builder.changeset, :adult)
   end
 
   test "explicitly set filters override initial parameters" do
@@ -258,8 +259,8 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_filters(%{search: "huh?", adult: false})
 
     assert %{search: "huh?", adult: false} === query_builder.filters
-    assert "huh?" === Ecto.Changeset.get_change(query_builder.changeset, :search)
-    assert false === Ecto.Changeset.get_change(query_builder.changeset, :adult)
+    assert "huh?" === Changeset.get_change(query_builder.changeset, :search)
+    assert false === Changeset.get_change(query_builder.changeset, :adult)
   end
 
   test "passing sort clauses that are not a list is reported" do
@@ -356,7 +357,7 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_sort(asc: :id)
 
     assert [asc: :id] === query_builder.sort
-    assert [asc: :id] === Ecto.Changeset.get_change(query_builder.changeset, :sort)
+    assert [asc: :id] === Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "adding sort field works" do
@@ -367,7 +368,7 @@ defmodule QueryBuilderTest do
     assert [desc: :birthdate, asc: :inserted_at, desc: :id] === query_builder.sort
 
     assert [desc: :birthdate, asc: :inserted_at, desc: :id] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
+             Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "default sort does not override parameter sort if they pertain to the same fields" do
@@ -378,7 +379,7 @@ defmodule QueryBuilderTest do
     assert [desc: :birthdate, asc: :inserted_at] === query_builder.sort
 
     assert [desc: :birthdate, asc: :inserted_at] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
+             Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "default sort does not override parameter sort even if they pertain to different fields" do
@@ -389,7 +390,7 @@ defmodule QueryBuilderTest do
     assert [desc: :birthdate, asc: :inserted_at] === query_builder.sort
 
     assert [desc: :birthdate, asc: :inserted_at] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
+             Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "default sort gets merged with parameter sort if they pertain to different fields" do
@@ -401,7 +402,7 @@ defmodule QueryBuilderTest do
              query_builder.sort
 
     assert [desc: :birthdate, asc: :inserted_at, asc: :id, desc: :updated_at] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
+             Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "default sort gets unconditionally applied if parameters contained no sort" do
@@ -412,7 +413,7 @@ defmodule QueryBuilderTest do
     assert [asc: :id, desc: :updated_at] === query_builder.sort
 
     assert [asc: :id, desc: :updated_at] ===
-             Ecto.Changeset.get_change(query_builder.changeset, :sort)
+             Changeset.get_change(query_builder.changeset, :sort)
   end
 
   test "reports errors from custom validations" do
