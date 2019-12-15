@@ -39,7 +39,9 @@ defmodule QueryBuilder.Sort do
   end
 
   def cast_sort_clauses(%Ecto.Changeset{} = cs, _) do
-    Ecto.Changeset.add_error(cs, @sort_key, "must be a list of sort clauses", clauses: :not_a_list)
+    Ecto.Changeset.add_error(cs, @sort_key, "must be a list of sort clauses",
+      clauses: :not_a_list
+    )
   end
 
   defp all_fields_are_atoms(sort) do

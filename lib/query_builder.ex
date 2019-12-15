@@ -1,5 +1,7 @@
 defmodule QueryBuilder do
+  alias Ecto.Changeset
   alias QueryBuilder.Sort
+  import Ecto.Query, only: [from: 2]
   import Sort, only: [is_sort_direction: 1, is_sort_function: 1]
 
   @moduledoc ~S"""
@@ -40,7 +42,7 @@ defmodule QueryBuilder do
   also, fetches the result with or without pagination (based on parameters).
 
   The parameters resemble Phoenix parameters, but `QueryBuilder` does not depend on Phoenix.
-  The param map is anything that can be turned into an `Ecto.Changeset` for validation.
+  The param map is anything that can be turned into an `Changeset` for validation.
   That means `QueryBuilder` is compatible with Phoenix but can be used without it.
 
   ### Usage guidelines
@@ -111,16 +113,16 @@ defmodule QueryBuilder do
   ### Validation
 
   Before building queries, it is beneficial to validate incoming params.
-  `QueryBuilder.new` requires passing param types. See `Ecto.Changeset.cast/4` for examples of schemaless changesets.
+  `QueryBuilder.new` requires passing param types. See `Changeset.cast/4` for examples of schemaless changesets.
 
   If your use-case requires additional validations,
   you can pass an additional validator as the fifth parameter to `QueryBuilder.new/5`
-  `t:filter_validator/0` takes `Ecto.Changeset` right after initial cast as an argument and should also return the changeset after applying validations.
+  `t:filter_validator/0` takes `Changeset` right after initial cast as an argument and should also return the changeset after applying validations.
 
   ### Strings vs Atoms
 
   Only initial param list allows string keys.
-  `QueryBuilder` uses `Ecto.Changeset` internally so all filter and order functions expect the keys to be atoms.
+  `QueryBuilder` uses `Changeset` internally so all filter and order functions expect the keys to be atoms.
 
   ### Default params
 
@@ -190,7 +192,7 @@ defmodule QueryBuilder do
   @type param_types :: %{required(field()) => param_type()}
   @type filter_value :: term()
   @type filter_fun :: (query(), term() -> query())
-  @type filter_validator :: (Ecto.Changeset.t() -> Ecto.Changeset.t())
+  @type filter_validator :: (Changeset.t() -> Changeset.t())
   @type filters :: %{required(field()) => filter_value()}
   @type filter_functions :: %{required(field()) => filter_fun()}
   @type page :: pos_integer()
@@ -198,12 +200,17 @@ defmodule QueryBuilder do
   @type pagination :: %{page: page(), page_size: page_size()}
   @type optional_pagination :: pagination() | %{}
   @type sort_direction ::
-          :asc | :asc_nulls_first | :asc_nulls_last | :desc | :desc_nulls_first | :desc_nulls_last
+          :asc
+          | :asc_nulls_first
+          | :asc_nulls_last
+          | :desc
+          | :desc_nulls_first
+          | :desc_nulls_last
   @type sort_clause :: {field(), sort_direction()}
   @type sort :: [sort_clause()]
   @type sort_fun :: (query(), sort_direction() -> query())
   # really ugly but we cannot specify a map with string keys as we can with the atom keys.
-  @type optional_changeset :: Ecto.Changeset.t() | nil
+  @type optional_changeset :: Changeset.t() | nil
   @type t :: %__MODULE__{
           repo: repo(),
           base_query: query(),
@@ -264,7 +271,7 @@ defmodule QueryBuilder do
        when is_params(params) and is_param_types(param_types) and
               is_filter_validator(filter_validator) do
     modified_cs =
-      Ecto.Changeset.cast(
+      Changeset.cast(
         {%{}, param_types},
         params,
         Map.keys(param_types)
@@ -275,7 +282,7 @@ defmodule QueryBuilder do
       query_builder
       | params: params,
         changeset: modified_cs,
-        filters: Ecto.Changeset.apply_changes(modified_cs)
+        filters: Changeset.apply_changes(modified_cs)
     }
     |> cast_filters()
     |> cast_pagination()
@@ -283,7 +290,9 @@ defmodule QueryBuilder do
   end
 
   @spec cast_filters(t()) :: t()
-  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs} = query_builder) do
+  defp cast_filters(
+         %__MODULE__{changeset: %Changeset{valid?: true} = cs} = query_builder
+       ) do
     filters =
       cs.changes
       |> Map.drop(@special_parameters)
@@ -291,12 +300,14 @@ defmodule QueryBuilder do
     %__MODULE__{query_builder | filters: filters}
   end
 
-  defp cast_filters(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = query_builder) do
+  defp cast_filters(%__MODULE__{changeset: %Changeset{valid?: false}} = query_builder) do
     query_builder
   end
 
   @spec cast_pagination(t()) :: t()
-  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: true} = cs} = query_builder) do
+  defp cast_pagination(
+         %__MODULE__{changeset: %Changeset{valid?: true} = cs} = query_builder
+       ) do
     pagination =
       cs.changes
       |> Map.take(@pagination_keys)
@@ -304,33 +315,34 @@ defmodule QueryBuilder do
     %__MODULE__{query_builder | pagination: pagination}
   end
 
-  defp cast_pagination(%__MODULE__{changeset: %Ecto.Changeset{valid?: false}} = query_builder) do
+  defp cast_pagination(%__MODULE__{changeset: %Changeset{valid?: false}} = query_builder) do
     query_builder
   end
 
   @spec cast_sort(t()) :: t()
   defp cast_sort(
-         %__MODULE__{changeset: %Ecto.Changeset{} = cs, params: %{"sort" => sort}} = query_builder
+         %__MODULE__{changeset: %Changeset{} = cs, params: %{"sort" => sort}} =
+           query_builder
        ) do
     modified_cs = Sort.cast_sort_clauses(cs, sort)
 
     %__MODULE__{
       query_builder
       | changeset: modified_cs,
-        sort: Ecto.Changeset.get_change(modified_cs, @sort_key) || []
+        sort: Changeset.get_change(modified_cs, @sort_key) || []
     }
   end
 
   defp cast_sort(%__MODULE__{} = query_builder), do: query_builder
 
-  @spec validate_sort(Ecto.Changeset.t(), term()) :: Ecto.Changeset.t()
-  defp validate_sort(%Ecto.Changeset{} = cs, sort)
+  @spec validate_sort(Changeset.t(), term()) :: Changeset.t()
+  defp validate_sort(%Changeset{} = cs, sort)
        when is_list(sort) do
     Sort.validate_sort_clauses(cs, sort)
   end
 
-  defp validate_sort(%Ecto.Changeset{} = cs, _) do
-    Ecto.Changeset.add_error(
+  defp validate_sort(%Changeset{} = cs, _) do
+    Changeset.add_error(
       cs,
       @sort_key,
       "must be a list of sort clauses",
@@ -339,8 +351,8 @@ defmodule QueryBuilder do
   end
 
   @spec put_sort(t(), term()) :: t()
-  def put_sort(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder, sort) do
-    original_cs = %Ecto.Changeset{cs | errors: List.keydelete(cs.errors, @sort_key, 0)}
+  def put_sort(%__MODULE__{changeset: %Changeset{} = cs} = query_builder, sort) do
+    original_cs = %Changeset{cs | errors: List.keydelete(cs.errors, @sort_key, 0)}
     errors_before = length(original_cs.errors)
     modified_cs = validate_sort(original_cs, sort)
     errors_after = length(modified_cs.errors)
@@ -349,7 +361,7 @@ defmodule QueryBuilder do
       %__MODULE__{
         query_builder
         | sort: sort,
-          changeset: Ecto.Changeset.put_change(modified_cs, @sort_key, sort)
+          changeset: Changeset.put_change(modified_cs, @sort_key, sort)
       }
     else
       %__MODULE__{query_builder | changeset: modified_cs}
@@ -401,27 +413,27 @@ defmodule QueryBuilder do
 
   @spec put_pagination(t(), optional_pagination()) :: t()
   def put_pagination(
-        %__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder,
+        %__MODULE__{changeset: %Changeset{} = cs} = query_builder,
         empty_pagination
       )
       when empty_pagination == %{} do
     modified_cs =
       cs
-      |> Ecto.Changeset.delete_change(@page_key)
-      |> Ecto.Changeset.delete_change(@page_size_key)
+      |> Changeset.delete_change(@page_key)
+      |> Changeset.delete_change(@page_size_key)
 
     %__MODULE__{query_builder | pagination: %{}, changeset: modified_cs}
   end
 
-  def put_pagination(%__MODULE__{changeset: %Ecto.Changeset{} = cs} = query_builder, %{
+  def put_pagination(%__MODULE__{changeset: %Changeset{} = cs} = query_builder, %{
         page: page,
         page_size: page_size
       })
       when is_page(page) and is_page_size(page_size) do
     modified_cs =
       cs
-      |> Ecto.Changeset.put_change(@page_key, page)
-      |> Ecto.Changeset.put_change(@page_size_key, page_size)
+      |> Changeset.put_change(@page_key, page)
+      |> Changeset.put_change(@page_size_key, page_size)
 
     %__MODULE__{
       query_builder
@@ -441,7 +453,10 @@ defmodule QueryBuilder do
   end
 
   @spec put_default_filters(t(), params()) :: t()
-  def put_default_filters(%__MODULE__{filters: filters} = query_builder, %{} = param_filters) do
+  def put_default_filters(
+        %__MODULE__{filters: filters} = query_builder,
+        %{} = param_filters
+      ) do
     modified_filters = Map.merge(param_filters, filters)
     put_params(query_builder, modified_filters)
   end
@@ -459,7 +474,10 @@ defmodule QueryBuilder do
         filter_fun
       )
       when is_field(field) and is_filter_function(filter_fun) do
-    %__MODULE__{query_builder | filter_functions: Map.put(filter_functions, field, filter_fun)}
+    %__MODULE__{
+      query_builder
+      | filter_functions: Map.put(filter_functions, field, filter_fun)
+    }
   end
 
   @spec query(t()) :: query()
@@ -490,7 +508,13 @@ defmodule QueryBuilder do
   defp reduce_sort(base_query, sort, sort_functions) do
     sort
     |> Enum.reduce(base_query, fn {sort_direction, field}, acc_query ->
-      order_fun = Map.get(sort_functions, field, &noop/2)
+      order_fun =
+        Map.get(sort_functions, field, fn q, dir ->
+          # A default sorting function which assumes ordering only by a singular field.
+          sort_clause = [{dir, field}]
+          from(x in q, order_by: ^sort_clause)
+        end)
+
       order_fun.(acc_query, sort_direction)
     end)
   end
@@ -506,8 +530,10 @@ defmodule QueryBuilder do
   end
 
   def fetch(
-        %__MODULE__{repo: repo, pagination: %{page: page, page_size: page_size} = pagination} =
-          query_builder
+        %__MODULE__{
+          repo: repo,
+          pagination: %{page: page, page_size: page_size} = pagination
+        } = query_builder
       )
       when is_page(page) and is_page_size(page_size) do
     query_builder
@@ -515,16 +541,16 @@ defmodule QueryBuilder do
     |> repo.paginate(pagination)
   end
 
-  def has_errors?(%__MODULE__{changeset: %Ecto.Changeset{} = cs}) do
+  def has_errors?(%__MODULE__{changeset: %Changeset{} = cs}) do
     cs.valid? and cs.errors === []
   end
 
-  def has_error?(%__MODULE__{changeset: %Ecto.Changeset{errors: errors}}, field)
+  def has_error?(%__MODULE__{changeset: %Changeset{errors: errors}}, field)
       when is_field(field) do
     Keyword.has_key?(errors, field)
   end
 
-  def get_error(%__MODULE__{changeset: %Ecto.Changeset{errors: errors}}, field)
+  def get_error(%__MODULE__{changeset: %Changeset{errors: errors}}, field)
       when is_field(field) do
     Keyword.get(errors, field)
   end
