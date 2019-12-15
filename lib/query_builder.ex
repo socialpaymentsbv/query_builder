@@ -200,7 +200,12 @@ defmodule QueryBuilder do
   @type pagination :: %{page: page(), page_size: page_size()}
   @type optional_pagination :: pagination() | %{}
   @type sort_direction ::
-          :asc | :asc_nulls_first | :asc_nulls_last | :desc | :desc_nulls_first | :desc_nulls_last
+          :asc
+          | :asc_nulls_first
+          | :asc_nulls_last
+          | :desc
+          | :desc_nulls_first
+          | :desc_nulls_last
   @type sort_clause :: {field(), sort_direction()}
   @type sort :: [sort_clause()]
   @type sort_fun :: (query(), sort_direction() -> query())
@@ -285,7 +290,9 @@ defmodule QueryBuilder do
   end
 
   @spec cast_filters(t()) :: t()
-  defp cast_filters(%__MODULE__{changeset: %Changeset{valid?: true} = cs} = query_builder) do
+  defp cast_filters(
+         %__MODULE__{changeset: %Changeset{valid?: true} = cs} = query_builder
+       ) do
     filters =
       cs.changes
       |> Map.drop(@special_parameters)
@@ -298,7 +305,9 @@ defmodule QueryBuilder do
   end
 
   @spec cast_pagination(t()) :: t()
-  defp cast_pagination(%__MODULE__{changeset: %Changeset{valid?: true} = cs} = query_builder) do
+  defp cast_pagination(
+         %__MODULE__{changeset: %Changeset{valid?: true} = cs} = query_builder
+       ) do
     pagination =
       cs.changes
       |> Map.take(@pagination_keys)
@@ -312,7 +321,8 @@ defmodule QueryBuilder do
 
   @spec cast_sort(t()) :: t()
   defp cast_sort(
-         %__MODULE__{changeset: %Changeset{} = cs, params: %{"sort" => sort}} = query_builder
+         %__MODULE__{changeset: %Changeset{} = cs, params: %{"sort" => sort}} =
+           query_builder
        ) do
     modified_cs = Sort.cast_sort_clauses(cs, sort)
 
@@ -443,7 +453,10 @@ defmodule QueryBuilder do
   end
 
   @spec put_default_filters(t(), params()) :: t()
-  def put_default_filters(%__MODULE__{filters: filters} = query_builder, %{} = param_filters) do
+  def put_default_filters(
+        %__MODULE__{filters: filters} = query_builder,
+        %{} = param_filters
+      ) do
     modified_filters = Map.merge(param_filters, filters)
     put_params(query_builder, modified_filters)
   end
@@ -461,7 +474,10 @@ defmodule QueryBuilder do
         filter_fun
       )
       when is_field(field) and is_filter_function(filter_fun) do
-    %__MODULE__{query_builder | filter_functions: Map.put(filter_functions, field, filter_fun)}
+    %__MODULE__{
+      query_builder
+      | filter_functions: Map.put(filter_functions, field, filter_fun)
+    }
   end
 
   @spec query(t()) :: query()
@@ -514,8 +530,10 @@ defmodule QueryBuilder do
   end
 
   def fetch(
-        %__MODULE__{repo: repo, pagination: %{page: page, page_size: page_size} = pagination} =
-          query_builder
+        %__MODULE__{
+          repo: repo,
+          pagination: %{page: page, page_size: page_size} = pagination
+        } = query_builder
       )
       when is_page(page) and is_page_size(page_size) do
     query_builder
