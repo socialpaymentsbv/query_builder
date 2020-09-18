@@ -100,13 +100,13 @@ defmodule QueryBuilder do
 
   ### Debugging
 
-  If you need to debug the builder, you can do it by piping to `IO.inspect`
+  If you need to debug the builder, you can do it by inspecting fields or piping `QueryBuilder` struct to `IO.inspect`
 
-  ```
-  Repo
-  |> QueryBuilder.new(User, %{"search" => "José"}, %{search: :string})
-  |> IO.inspect
-  ```
+      iex> user_query_builder = QueryBuilder.new(Repo, User, %{"search" => "José"}, %{search: :string})
+      iex> user_query_builder.filters
+      %{search: "José"}
+      iex> user_query_builder.params
+      %{"search" => "José"}
 
   The struct presents validated params for easy debugging.
 
@@ -167,9 +167,16 @@ defmodule QueryBuilder do
   it uses a list instead of a map. `QueryBuilder.put_sort(query_builder, [asc: :id, desc: :updated_at])`
   We can't use a map here because order matters.
 
-  ```
-  query_builder = QueryBuilder.new(Repo, User, %{"sort" => [asc: :id, desc: :updated_at]})
-  ```
+      iex> QueryBuilder.new(Repo, User, %{"sort" => [%{"id" => "asc"}, %{"updated_at" => "desc"}]}, %{}).sort
+      [asc: :id, desc: :updated_at]
+
+
+  ### Errors
+
+  If the parameters don't match specified types, we get errors inside changeset.
+
+      iex> QueryBuilder.new(Repo, User, %{"sort" => [%{"id" => "asc", "updated_at" => "desc"}]}, %{}).changeset.errors
+      [sort: {"clause 0 is not a one-key map", [index: 0, clause: :not_a_one_key_map]}]
   """
 
   @pagination_param_types %{page: :integer, page_size: :integer}
@@ -249,6 +256,22 @@ defmodule QueryBuilder do
             sort_functions: %{},
             changeset: nil
 
+  @doc """
+  Creates `QueryBuilder` struct.
+
+      iex> QueryBuilder.new(Repo, User, %{"birthdate" => "1989-02-07"}, %{birthdate: :date}).filters
+      %{birthdate: ~D[1989-02-07]}
+
+  It uses `param_types` for casting params to correct data types using `Ecto`
+  which means you can use the same Primitive Types as in `Ecto.Schema`
+
+  The optional parameter `filter_validator` allows passing a function performing additional checks on `filters`.
+
+  iex> QueryBuilder.new(Repo, User, %{"birthdate" => "1989-02-07"}, %{birthdate: :date}, fn changeset ->
+  ...>   Ecto.Changeset.add_error(changeset, :birthdate, "This validation will always fail")
+  ...> end).changeset.errors
+  [birthdate: {"This validation will always fail", []}]
+  """
   @spec new(repo(), query(), params(), param_types(), filter_validator()) :: t()
   def new(repo, base_query, params, param_types, filter_validator \\ & &1)
       when is_repo(repo) and is_query(base_query) and is_params(params) and
@@ -350,6 +373,19 @@ defmodule QueryBuilder do
     )
   end
 
+  @doc """
+  Adds to or overwrites sort set in params.
+
+      iex> qb = QueryBuilder.new(Repo, User, %{"sort" => [%{"name" => "asc"}]}, %{})
+      iex> qb.sort
+      [asc: :name]
+      iex> QueryBuilder.put_sort(qb, [desc: :birthdate]).sort
+      [desc: :birthdate]
+
+  IMPORTANT: sort params have the sahpe `[%{"key" => "sort_direction"}, %{"another_key" => "another_sort_direction"}]`
+  that later get translated to: `[sort_direction: :key, another_sort_direction: another_key]`.
+  We wanted to make the sort compatibile with URL paramaters which don't have keyword lists
+  """
   @spec put_sort(t(), term()) :: t()
   def put_sort(%__MODULE__{changeset: %Changeset{} = cs} = query_builder, sort) do
     original_cs = %Changeset{cs | errors: List.keydelete(cs.errors, @sort_key, 0)}
@@ -411,6 +447,14 @@ defmodule QueryBuilder do
     end)
   end
 
+  @doc """
+  Adds to or overwrites pagination set in params.
+
+      iex> qb = QueryBuilder.new(Repo, User, %{"pagination" => %{"page" => "1", "page_size" => "10"}}, %{})
+      ...> |> QueryBuilder.put_pagination(%{page: 2, page_size: 50})
+      iex> qb.pagination
+      %{page: 2, page_size: 50}
+  """
   @spec put_pagination(t(), optional_pagination()) :: t()
   def put_pagination(
         %__MODULE__{changeset: %Changeset{} = cs} = query_builder,
@@ -461,6 +505,14 @@ defmodule QueryBuilder do
     put_params(query_builder, modified_filters)
   end
 
+  @doc """
+  Adds to or overwrites filters set in params.
+
+      iex> qb = QueryBuilder.new(Repo, User, %{"search" => "José"}, %{search: :string})
+      ...> |> QueryBuilder.put_filters(%{search: "Chris"})
+      iex> qb.filters
+      %{search: "Chris"}
+  """
   @spec put_filters(t(), filters()) :: t()
   def put_filters(%__MODULE__{filters: filters} = query_builder, %{} = param_filters) do
     modified_filters = Map.merge(filters, param_filters)
