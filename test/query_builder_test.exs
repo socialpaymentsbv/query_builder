@@ -7,7 +7,7 @@ defmodule QueryBuilderTest do
 
   import Ecto.Query
 
-  @valid_sort [%{"birthdate" => "desc"}, %{"inserted_at" => "asc"}]
+  @valid_sort ["desc,birthdate", "asc,inserted_at"]
 
   @valid_params %{
     "search" => "clubcollect",

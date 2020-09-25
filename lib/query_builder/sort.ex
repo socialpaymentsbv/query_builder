@@ -3,6 +3,7 @@ defmodule QueryBuilder.Sort do
   @moduledoc false
 
   @sort_key :sort
+  @sort_split_character ","
   @sort_direction_atoms ~w(asc asc_nulls_first asc_nulls_last desc desc_nulls_first desc_nulls_last)a
   @sort_direction_strings Enum.map(@sort_direction_atoms, &Atom.to_string/1)
 
@@ -58,21 +59,21 @@ defmodule QueryBuilder.Sort do
   defp parse_sort_clauses(nil), do: []
 
   defp parse_sort_clauses(sort_clauses) do
-    {:error, "Sort clauses must be a list of maps like [%{\"field\" => \"direction\"}], got: #{inspect(sort_clauses)}"}
+    {:error, "Sort clauses must be a list of strings like [\"direction,field\"], got: #{inspect(sort_clauses)}"}
   end
 
-  defp parse_sort_clause(%{} = sort_clause) do
-    case {Map.keys(sort_clause), Map.values(sort_clause)} do
-      {[field], [direction]} when direction in @sort_direction_strings->
+  defp parse_sort_clause(sort_clause) when is_binary(sort_clause) do
+    case String.split(sort_clause, @sort_split_character) do
+      [direction, field] when direction in @sort_direction_strings ->
         {:ok, {String.to_existing_atom(direction), String.to_existing_atom(field)}}
       other ->
-        sort_clause_error(other)
+        sort_clause_error(sort_clause)
     end
   end
 
   defp parse_sort_clause(sort_clause), do: sort_clause_error(sort_clause)
 
   defp sort_clause_error(sort_clause) do
-    {:error, "Sort clause must be a map %{\"field\" => \"direction\"}, got: #{inspect(sort_clause)}"}
+    {:error, "Sort clause must be a string \"direction,field\", got: #{inspect(sort_clause)}"}
   end
 end

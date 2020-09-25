@@ -16,7 +16,7 @@ defmodule QueryBuilder do
   @pagination_keys Map.keys(@pagination_param_types)
 
   @sort_key :sort
-  @sort_param_types %{sort: {:array, {:map, :string}}}
+  @sort_param_types %{sort: {:array, :string}}
 
   @special_parameters [@sort_key | @pagination_keys]
   @special_param_types Map.merge(@pagination_param_types, @sort_param_types)
@@ -207,7 +207,7 @@ defmodule QueryBuilder do
   @doc """
   Adds to or overwrites sort set in params.
 
-      iex> qb = QueryBuilder.new(Repo, User, %{"sort" => [%{"name" => "asc"}]}, %{})
+      iex> qb = QueryBuilder.new(Repo, User, %{"sort" => ["asc,name"]}, %{})
       iex> qb.sort
       [asc: :name]
       iex> QueryBuilder.put_sort(qb, [desc: :birthdate]).sort

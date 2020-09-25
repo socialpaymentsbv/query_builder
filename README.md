@@ -156,7 +156,7 @@ Sorting is different from filtering and pagination because,
 it uses a list instead of a map. `QueryBuilder.put_sort(query_builder, [asc: :id, desc: :updated_at])`
 We can't use a map here because order matters.
 
-    iex> QueryBuilder.new(Repo, User, %{"sort" => [%{"id" => "asc"}, %{"updated_at" => "desc"}]}, %{}).sort
+    iex> QueryBuilder.new(Repo, User, %{"sort" => ["asc,id", "desc,updated_at"]}, %{}).sort
     [asc: :id, desc: :updated_at]
 
 
@@ -164,6 +164,6 @@ We can't use a map here because order matters.
 
 If the parameters don't match specified types, we get errors inside changeset.
 
-    iex> QueryBuilder.new(Repo, User, %{"sort" => [%{"id" => "asc", "updated_at" => "desc"}]}, %{}).changeset.errors
-    [sort: {"Sort clause must be a map %{\"field\" => \"direction\"}, got: {[\"id\", \"updated_at\"], [\"asc\", \"desc\"]}", []}]
+    iex> QueryBuilder.new(Repo, User, %{"sort" => ["id,asc", "updated_at,desc"]}, %{}).changeset.errors
+    [sort: {"Sort clause must be a string \"direction,field\", got: \"id,asc\"", []}]
 <!-- MDOC !-->
