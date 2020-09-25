@@ -25,8 +25,8 @@ defmodule QueryBuilder.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ecto_sql, "~> 3.0"},
-      {:scrivener_ecto, "~> 2.0"},
+      {:ecto_sql, "~> 3.2.0"},
+      {:scrivener_ecto, "~> 2.2.0"},
       {:postgrex, ">= 0.0.0", only: [:test]},
       {:dialyxir, "~> 1.0.0-rc.6", only: [:dev], runtime: false}
     ]
