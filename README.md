@@ -165,6 +165,5 @@ We can't use a map here because order matters.
 If the parameters don't match specified types, we get errors inside changeset.
 
     iex> QueryBuilder.new(Repo, User, %{"sort" => [%{"id" => "asc", "updated_at" => "desc"}]}, %{}).changeset.errors
-    [sort: {"clause 0 is not a one-key map", [index: 0, clause: :not_a_one_key_map]}]
-
+    [sort: {"Sort clause must be a map %{\"field\" => \"direction\"}, got: {[\"id\", \"updated_at\"], [\"asc\", \"desc\"]}", []}]
 <!-- MDOC !-->

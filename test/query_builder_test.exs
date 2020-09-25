@@ -281,7 +281,7 @@ defmodule QueryBuilderTest do
       )
       |> QueryBuilder.get_error(:sort)
 
-    assert match?({_msg, [clauses: :not_a_list]}, err)
+    assert match?({_msg, []}, err)
   end
 
   test "passing sort clauses that are not all maps is reported" do
@@ -297,7 +297,7 @@ defmodule QueryBuilderTest do
       )
       |> QueryBuilder.get_error(:sort)
 
-    assert match?({_msg, [index: 0, clause: :not_a_map]}, err)
+    assert match?({_msg, []}, err)
   end
 
   test "passing sort clauses that are not all one-key maps is reported" do
@@ -313,7 +313,7 @@ defmodule QueryBuilderTest do
       )
       |> QueryBuilder.get_error(:sort)
 
-    assert match?({_msg, [index: 0, clause: :not_a_one_key_map]}, err)
+    assert match?({_msg, []}, err)
   end
 
   test "passing sort clauses that have invalid sort directions is reported" do
@@ -329,7 +329,7 @@ defmodule QueryBuilderTest do
       )
       |> QueryBuilder.get_error(:sort)
 
-    assert match?({_msg, [index: 1, clause: :invalid_direction]}, err)
+    assert match?({_msg, []}, err)
   end
 
   test "passing valid params without sort works" do
@@ -356,7 +356,7 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_sort(unknown: :inserted_at)
 
     assert match?(
-             {_msg, [index: 0, clause: :invalid_direction]},
+             {_msg, []},
              QueryBuilder.get_error(query_builder, :sort)
            )
   end
@@ -367,7 +367,7 @@ defmodule QueryBuilderTest do
       |> QueryBuilder.put_sort(asc: 123)
 
     assert match?(
-             {_msg, [index: 0, clause: :invalid_field]},
+             {_msg, []},
              QueryBuilder.get_error(query_builder, :sort)
            )
   end
