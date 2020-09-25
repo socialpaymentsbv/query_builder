@@ -183,7 +183,7 @@ defmodule QueryBuilder do
     %__MODULE__{
       query_builder
       | changeset: modified_cs,
-        sort: Changeset.get_change(modified_cs, @sort_key) || []
+      sort: (if modified_cs.valid?, do: Changeset.get_change(modified_cs, @sort_key)) || []
     }
   end
 
